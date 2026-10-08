@@ -35,15 +35,15 @@ Estructura de código esperada:
 - [x] Tests: `test_cluster` (medoide vs moda, eps auto), `test_neff`.
 
 ## Etapa 3 — SYNTH + EDGE
-- [ ] Implementar `robustness/synthetic.py`: `SyntheticMarketGenerator` GARCH(1,1,1)-t con asimétrico (`@njit`), `generate_universe`, `build_ohlc_fast`, cache por (símbolo,TF), `to_csv()` M1-MT5. Validar que replica vol/autocorr(|r|)/kurtosis/rango diario ±20%. Spread sintético = `spread_medio_real×(1+estrés)`. Generador nulo `iid_residuals`. Soporte stationary bootstrap p=0.1. Seeds `(master.seed, cluster_id, sim_idx)`.
-- [ ] Implementar `robustness/scoring.py` + `validate_synthetic.py`: 1 backtest real + N sintéticos (20 screening, 50 finalistas), `score_percentile_rank` por métrica (Sharpe, PF, #Trades), banda [10,90], quorum 0.5, bordes (NaN/inf→None, varianza-cero→50). Semántica: rank bajo=FAIL, rank alto=ÁMBAR (lo resuelve edge test + 3B).
-- [ ] Implementar `robustness/null_control.py`: 200 sims sobre generador nulo; a nivel pool `|Sharpe medio|<=0.15` y ≤10% significativos, si no STOP del run; a nivel set Sharpe nulo positivo significativo=FAIL. Test `test_null_control`.
-- [ ] Implementar `robustness/edge_tests.py`: shortlist top-40, White RC / Hansen SPA / Romano-Wolf stepdown con stationary bootstrap ≥2000 remuestreos (o permutación sign-flip), `edge_p_adj`, `alpha_fwer=0.10`, familia=ledger (`S_global`). Test `test_fdr_resolution`.
-- [ ] Implementar `robustness/dsr.py` (PSR/DSR con skew/kurtosis/T, veto `DSR(N_eff)<0.20`, haircut Harvey-Liu) y `robustness/fdr.py` (BH q=0.10 sobre p del edge test, check `p_min<=q/C` o aborta).
-- [ ] Re-scoring estresado sin re-simular: `spread×2,+1 tick`; `stress FAIL+base PASS`=ámbar mitad prioridad.
-- [ ] Salidas: `synthetic_validation/<...>.csv (ranks, dsr_S, dsr_neff, edge_p_adj, fdr_adj_p, haircut, null_sharpe_mean, verdict)` + `null_control/ + edge_tests/` + plots `real_vs_synth.png, deviation_distribution.png`.
-- [ ] Veredicto por set VERDE/ÁMBAR/ROJO según §3.2. Pasan a 3B verdes + ámbares con `edge_p_adj<alpha`.
-- [ ] Tests: `test_scoring`, `test_synthetic_determinism`, `test_calibration_smoke`.
+- [x] Implementar `robustness/synthetic.py`: `SyntheticMarketGenerator` GARCH(1,1,1)-t con asimétrico (`@njit`), `generate_universe`, `build_ohlc_fast`, cache por (símbolo,TF), `to_csv()` M1-MT5. Validar que replica vol/autocorr(|r|)/kurtosis/rango diario ±20%. Spread sintético = `spread_medio_real×(1+estrés)`. Generador nulo `iid_residuals`. Soporte stationary bootstrap p=0.1. Seeds `(master.seed, cluster_id, sim_idx)`.
+- [x] Implementar `robustness/scoring.py` + `validate_synthetic.py`: 1 backtest real + N sintéticos (20 screening, 50 finalistas), `score_percentile_rank` por métrica (Sharpe, PF, #Trades), banda [10,90], quorum 0.5, bordes (NaN/inf→None, varianza-cero→50). Semántica: rank bajo=FAIL, rank alto=ÁMBAR (lo resuelve edge test + 3B).
+- [x] Implementar `robustness/null_control.py`: 200 sims sobre generador nulo; a nivel pool `|Sharpe medio|<=0.15` y ≤10% significativos, si no STOP del run; a nivel set Sharpe nulo positivo significativo=FAIL. Test `test_null_control`.
+- [x] Implementar `robustness/edge_tests.py`: shortlist top-40, White RC / Hansen SPA / Romano-Wolf stepdown con stationary bootstrap ≥2000 remuestreos (o permutación sign-flip), `edge_p_adj`, `alpha_fwer=0.10`, familia=ledger (`S_global`). Test `test_fdr_resolution`.
+- [x] Implementar `robustness/dsr.py` (PSR/DSR con skew/kurtosis/T, veto `DSR(N_eff)<0.20`, haircut Harvey-Liu) y `robustness/fdr.py` (BH q=0.10 sobre p del edge test, check `p_min<=q/C` o aborta).
+- [x] Re-scoring estresado sin re-simular: `spread×2,+1 tick`; `stress FAIL+base PASS`=ámbar mitad prioridad.
+- [x] Salidas: `synthetic_validation/<...>.csv (ranks, dsr_S, dsr_neff, edge_p_adj, fdr_adj_p, haircut, null_sharpe_mean, verdict)` + `null_control/ + edge_tests/` + plots `real_vs_synth.png, deviation_distribution.png`.
+- [x] Veredicto por set VERDE/ÁMBAR/ROJO según §3.2. Pasan a 3B verdes + ámbares con `edge_p_adj<alpha`.
+- [x] Tests: `test_scoring`, `test_synthetic_determinism`, `test_calibration_smoke`.
 
 ## Etapa 3B — WF / CPCV / PBO
 - [ ] Implementar `robustness/cscv_pbo.py`: matriz daily_returns → 10 bloques → mitades train/test con purga/embargo → PBO, logits, degradación IS→OOS. Gate `PBO<=0.30`. Test `test_cscv_pbo`.
