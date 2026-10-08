@@ -1,0 +1,167 @@
+# pipeline_master.yaml — MAESTRO v3.0 (bbands_breakout / AUDCAD H1)
+# Todo lo configurable vive aquí. Nada hardcodeado en .py.
+# Cambiar costs/windows/embargo/seed/n_trials a mitad de run => aborta (ProcessLog).
+pipeline_version: 3.0
+seed: 1500
+
+strategy:
+  name: bbands_breakout
+  factory: strategies.bbands_breakout.signal:make_signal_fn
+  params_class: strategies.bbands_breakout.params:BBandsParams
+  spec: strategies/bbands_breakout/spec.yaml
+  strategy_id: "11313"
+  cash: 10000
+  account_currency: USD
+  search_space:
+    bb_period: {type: int, low: 10, high: 30, step: 2}
+    bb_std_dev: {type: float, low: 1.8, high: 2.8, step: 0.2}
+  frozen: {FilterHours: true, MaxOrdenesAbiertas: 1, close_hour: 21, order_placement_hour: 8}
+
+universe:
+  symbols: [AUDCAD]
+  timeframes: [H1]
+  data_dir: E:/Data_csv/MT5
+  broker_server_tz: Europe/Athens
+  windows: {IS: [2021-01-03, 2023-12-31], FORWARD: [2024-01-03, 2025-12-31]}
+  embargo: {rule: max_holding_plus_warmup, extra_bars: 10, apply_to: [is_forward, wf_folds, cpcv_folds]}
+  min_trades_IS: 100
+  power: {mintrl_check: true, target_sharpe: 0.8, alpha: 0.05, inconclusive_action: flag}
+
+research_ledger:
+  path: research/ledger.parquet
+  count_scope: program
+  lockbox_registry: research/lockbox_uses.yaml
+
+costs:
+  commission_per_side_per_lot: 2.5
+  spread_mult: 1.0
+  slippage_ticks: 1
+  swap_mode: from_yaml
+  delay_bars: 1
+  intrabar_order: worst_case
+
+optimization:
+  engine: optuna
+  direction: maximize
+  n_trials: 100
+  n_startup_random: 10
+  sampler: TPE
+  constraints_mode: sampler
+  pruner: median
+  n_jobs: 1
+  deterministic_mode: true
+  storage: null
+  store_daily_returns: true
+  objectives: {primary: sharpe_net}
+  robust: {enabled: true, mode: subwindows, n_subwindows: 4, lambda_std: 0.5}
+  constraints: {min_trades: 100, max_maxdd_pct: 25.0, min_pf: 1.0, max_exposure_pct: 80.0}
+  early_gate: {enabled: false, at_fraction: 0.5, min_trades_fast: 30}
+
+cluster:
+  enabled: true
+  method: dbscan
+  feature_set: params_only
+  scaler: robust
+  eps: auto
+  eps_quantile: 0.90
+  min_samples: 5
+  metric: manhattan
+  max_clusters_kept: 250
+  representative: medoid
+  keep_singleton_outliers: true
+  neff: {enabled: true, method: onc_returns}
+
+validation:
+  n_sim_screening: 20
+  n_sim_final: 50
+  method: block
+  block_size: 10
+  stationary_bootstrap: {enabled: false, p: 0.1}
+  consistency: {percentile_low: 10.0, percentile_high: 90.0, low_rank_action: fail,
+    high_rank_action: amber, min_metrics_pass: 0.5,
+    metrics: [{name: sharpe_net, type: stat}, {name: pf, type: stat}, {name: n_trades, type: stat}]}
+  null_control: {enabled: true, generator: iid_residuals, n_sims: 200,
+    max_abs_mean_sharpe: 0.15, max_pos_rate: 0.10}
+  edge_test: {method: spa, resampling: stationary_bootstrap, n_resamples_shortlist: 2000,
+    shortlist_size: 40, alpha_fwer: 0.10, family_scope: ledger}
+  dsr: {enabled: true, benchmark_sr: 0.0, n_trials_source: both, veto_below: 0.20}
+  fdr: {enabled: true, q: 0.10, p_source: edge_test, resolution_check: abort}
+  synth_stress: {spread_mult: 2.0, slippage_ticks_add: 1}
+
+walkforward_cpcv:
+  enabled: true
+  pbo: {n_groups: 10, max: 0.30, min_trials: 50}
+  cpcv: {n_groups: 10, k_test_groups: 2, purge: from_embargo, min_paths_positive: 0.70}
+  wf: {scheme: anchored, n_folds: 5, test_months: 12, reopt: true, n_trials_per_fold: 20,
+    wfe_min: 0.5, min_folds_positive: 0.70}
+
+decorrelation:
+  method: greedy
+  correlation_threshold: 0.7
+  max_sets: 5
+  min_trades: 30
+  resample: D
+  corr_method: pearson
+  weights: {sharpe_net: 0.4, profit_factor: 0.3, r2: 0.2, turnover_penalty: 0.1}
+  pf_cap_percentile: 95.0
+  stability_check: {enabled: true, jitter_pct: 10, min_green: 0.8}
+
+execution_realism:
+  tick_replay: {enabled: true, source: broker_ticks, min_coverage: 0.95}
+  stress_grid: {spread_mult: [1.0, 1.5, 2.0], slippage_ticks_add: [0, 1, 2], delay_bars: [1, 2]}
+  pass: {min_pf_worst_cell: 1.05, max_sharpe_decay_pct: 50}
+  bar_vs_tick_max_pf_gap_pct: 15
+
+gates:
+  pf_min: 1.3
+  pf_retest_band: [1.1, 1.3]
+  r2_min: 0.5
+  max_dd_days: 365
+  max_red_months: 10
+  regimes: {by_year: true, by_vol_regime: true, by_session: true,
+    min_share_positive: 0.60, max_single_cell_pnl_share: 0.50}
+
+forward: {min_pf: 1.1, min_sharpe_net: 0.0, multiplicity: {method: holm, count_scope: ledger}}
+
+promotion:
+  lots: {max_dd_allow: 1200, max_trade_lost_allow: 200, mean_trade_lost_allow: 100}
+  sl_tp: {metodo: percentil_MFE_MAE, p_sl: 10, p_tp: 90}
+  magic_start: 11313
+
+portfolio:
+  allocation: {method: hrp, covariance: ledoit_wolf, vol_target_annual: 0.10,
+    kelly_fraction_cap: 0.25, max_weight_per_strategy: 0.30, rebalance: monthly}
+  limits: {max_dd_portfolio_pct: 15, max_currency_net_exposure_lots: 5.0,
+    max_open_positions: 12, max_leverage: 10}
+  stress_corr: {method: worst_decile_days, max_rho_stress: 0.80}
+  mc_envelope: {method: block_bootstrap, n_paths: 5000, percentiles: [95, 99]}
+  capacity: {capital_grid: [10k, 50k, 250k, 1M], metric: sharpe_decay_pct, max_decay_pct: 25}
+
+live:
+  rollout:
+    stages:
+      - {name: paper, lot_mult: 0.0, min_days: 60, min_trades: 30}
+      - {name: micro, lot_mult: 0.1, min_days: 60}
+      - {name: scaled, lot_mult: 0.5, min_days: 90}
+      - {name: full, lot_mult: 1.0}
+  parity: {max_signal_mismatch_pct: 2.0, max_slippage_ticks_p95: 2.0, max_daily_tracking_error_pct: 0.5}
+  monitoring: {rolling_window_days: 60, sharpe_alert_percentile: 5, dd_envelope_alert: 95,
+    dd_envelope_stop: 99, cusum: {k: 0.5, h: 5.0}, trade_freq_band: 0.5, slippage_drift_ticks: 1.0}
+  risk_limits: {per_trade_risk_pct: 1.0, daily_loss_pct: 3.0, strategy_dd_pct: 10.0,
+    portfolio_dd_pct: 15.0, max_spread_points: 30, heartbeat_seconds: 30, stale_data_seconds: 120}
+  reconcile: {interval_seconds: 60, on_mismatch: halt_and_alert}
+  retirement: {rule: any_of, sharpe_below_p5_days: 30, reopt_policy: none}
+
+calibration:
+  null_strategies: {n: 200, kinds: [random_entries, shuffled_signals, indicator_on_noise]}
+  data_modes: [iid_synthetic, real_block_permuted]
+  planted_edge: {n: 100, sharpe_levels: [0.3, 0.6, 1.0], seeds: 5}
+  targets: {max_false_positive_rate: 0.05, min_power_at_sharpe_1: 0.70}
+  rerun_on: [thresholds_change, generator_change, major_version]
+
+runtime:
+  robot_folder: bots_folder/{strategy}
+  out_dir: runs/{strategy}/{timestamp}_{githash}
+  resume: true
+  reproducibility: {container: docker, data_versioning: dvc, experiment_tracking: mlflow}
+  ci: {regression_run: {deterministic_mode: true, n_trials: 20}}

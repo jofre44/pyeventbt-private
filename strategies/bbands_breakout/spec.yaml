@@ -1,0 +1,56 @@
+# spec.yaml — BBands Breakout (estrategia ya definida, lógica cerrada)
+# Pre-registro: hipótesis + invalidez. Cambiar esto = nueva hipótesis = nuevo run.
+strategy_family: bbands_breakout
+version: 1.0.0
+code_entry: strategies.bbands_breakout.signal:make_signal_fn
+params_class: strategies.bbands_breakout.params:BBandsParams
+
+hypothesis: >
+  Ruptura de volatilidad intradía: tras la apertura europea el rango nocturno
+  (Bollinger sobre H1) actúa como disparador de expansión direccional.
+  Se opera solo la expansión del mismo día con time-stop al cierre (21:00),
+  sin mantener overnight. Fundamento: ciclo de liquidez Londres/NY, no patrón minado.
+
+universe:
+  symbols: [AUDCAD]
+  signal_timeframe: H1
+
+session:
+  order_placement: "08:00"      # hora servidor broker
+  flat_all_by: "21:00"          # time-stop diario: cierra todo, cancela pendientes
+
+entry:
+  on: closed_bars_only
+  long: BUY STOP en banda superior (bb_period, bb_std_dev)
+  short: SELL STOP en banda inferior
+  max_open_positions_per_symbol: 1
+  delay_bars: 1                 # señal sobre barra cerrada, fill en la siguiente
+
+exit:
+  time_stop: flat_all_by
+  sl_tp: none_in_signal         # SL/TP se fijan en Etapa 4 (selection/sl_tp.py), nunca min/max
+
+filters:
+  spread_max_points: 30
+  atr_filter: none
+  news_filter: none
+
+costs_assumed:
+  spread: real_series_from_manifest
+  slippage_ticks: 1
+  commission_per_side_per_lot: 2.5
+  intrabar_order: worst_case
+
+invalidation:
+  - n_trades_IS < 100 con params nominales => combo no líquido, cambiar TF/ventana
+  - win_rate < 30% con PF < 1.0 en IS nominal => hipótesis no sostiene este símbolo/TF
+  - Sharpe nulo (control negativo) significativamente > 0 => artefacto de backtester
+
+search_space_ref: pipeline_master.yaml:strategy.search_space
+frozen:
+  FilterHours: true
+  MaxOrdenesAbiertas: 1
+  close_hour: 21
+  close_minute: 0
+  order_placement_hour: 8
+  order_placement_minute: 0

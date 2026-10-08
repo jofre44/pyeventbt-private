@@ -8,16 +8,16 @@ Estructura de código esperada:
 ---
 
 ## Etapa 0 — PREP: spec, datos, presupuesto, potencia, ledger
-- [ ] Crear `strategies/<est>/spec.yaml`: hipótesis, universo, sesión, entrada sobre barras cerradas, salidas (SL siempre o time-stop), filtros (`spread_max`, ATR, noticias, `MaxOrdenes=1`), criterio de invalidez.
-- [ ] Crear `pipeline_master.yaml` según esquema §2 (strategy, universe, embargo en tiempo, costs congelados, seed, `n_trials`, optimization, cluster, validation, walkforward_cpcv, decorrelation, execution_realism, gates, forward, promotion, portfolio, live, calibration, runtime).
-- [ ] Implementar `runner/master_config.py`: validación, hash de config, aborta si `costs/windows/embargo/seed/n_trials` cambian a mitad de run. Regla: cambiar maestro = nuevo run con `resume:true`.
-- [ ] Implementar `DATA_MANIFEST.json` por símbolo: fuente, filas, gaps, spread medio/p95, hash + `broker_server_tz` y DST. `data_check` debe fallar ante huecos/duplicados de DST y sesiones que no coinciden con broker de producción.
-- [ ] Implementar embargo en tiempo: `max(max_holding, warmup) + extra_bars` en unidad del TF señal. Aplicar entre IS/FORWARD y entre folds WF/CPCV. Test `test_embargo_time`.
-- [ ] Implementar leakage firewall como tests bloqueantes (FAIL, no warning): look-ahead, timestamps desordenados, barras incompletas, duplicados, joins temporales mal, uso accidental de lockbox, survivorship. Tests `test_*` correspondientes.
-- [ ] Implementar `budget.json` + registro en ledger: `n_trials` fijado antes (regla 50-100 por dimensión), `seed` única con derivación `seed+trial_number`. Storage: PostgreSQL o JournalStorage si `n_jobs>1` (SQLite solo 1 worker).
-- [ ] Implementar `power.py` → `power.json` por combo: años efectivos, nº trades, SE Sharpe, MinTRL, potencia. Si `años_IS < MinTRL` marcar `INCONCLUSIVE` (nunca aprobar por defecto).
-- [ ] Implementar `research/ledger.py`: `research/ledger.parquet` append-only (`run_id, strategy_family, combo, trial_number, params_hash, window, sharpe_net, n_trades, daily_returns_ref, timestamp`) + `lockbox_uses.yaml`. `S_global` = trials del programa sobre misma ventana. Test `test_ledger_append_only`.
-- [ ] Salida: `runs/.../00_prep/{spec.yaml, master_copy.yaml, manifests/, data_check.html, budget.json, power.json}` + veredicto `READY/INCONCLUSIVE`.
+- [x] Crear `strategies/<est>/spec.yaml`: hipótesis, universo, sesión, entrada sobre barras cerradas, salidas (SL siempre o time-stop), filtros (`spread_max`, ATR, noticias, `MaxOrdenes=1`), criterio de invalidez.
+- [x] Crear `pipeline_master.yaml` según esquema §2 (strategy, universe, embargo en tiempo, costs congelados, seed, `n_trials`, optimization, cluster, validation, walkforward_cpcv, decorrelation, execution_realism, gates, forward, promotion, portfolio, live, calibration, runtime).
+- [x] Implementar `runner/master_config.py`: validación, hash de config, aborta si `costs/windows/embargo/seed/n_trials` cambian a mitad de run. Regla: cambiar maestro = nuevo run con `resume:true`.
+- [x] Implementar `DATA_MANIFEST.json` por símbolo: fuente, filas, gaps, spread medio/p95, hash + `broker_server_tz` y DST. `data_check` debe fallar ante huecos/duplicados de DST y sesiones que no coinciden con broker de producción.
+- [x] Implementar embargo en tiempo: `max(max_holding, warmup) + extra_bars` en unidad del TF señal. Aplicar entre IS/FORWARD y entre folds WF/CPCV. Test `test_embargo_time`.
+- [x] Implementar leakage firewall como tests bloqueantes (FAIL, no warning): look-ahead, timestamps desordenados, barras incompletas, duplicados, joins temporales mal, uso accidental de lockbox, survivorship. Tests `test_*` correspondientes.
+- [x] Implementar `budget.json` + registro en ledger: `n_trials` fijado antes (regla 50-100 por dimensión), `seed` única con derivación `seed+trial_number`. Storage: PostgreSQL o JournalStorage si `n_jobs>1` (SQLite solo 1 worker).
+- [x] Implementar `power.py` → `power.json` por combo: años efectivos, nº trades, SE Sharpe, MinTRL, potencia. Si `años_IS < MinTRL` marcar `INCONCLUSIVE` (nunca aprobar por defecto).
+- [x] Implementar `research/ledger.py`: `research/ledger.parquet` append-only (`run_id, strategy_family, combo, trial_number, params_hash, window, sharpe_net, n_trades, daily_returns_ref, timestamp`) + `lockbox_uses.yaml`. `S_global` = trials del programa sobre misma ventana. Test `test_ledger_append_only`.
+- [x] Salida: `runs/.../00_prep/{spec.yaml, master_copy.yaml, manifests/, data_check.html, budget.json, power.json}` + veredicto `READY/INCONCLUSIVE`.
 
 ## Etapa 1 — OPTUNA
 - [ ] Implementar adaptador único `run_pyeventbt_once(params, combo, *, costs, window, cash, seed) -> (pnl_df, trades_df)`: valida contra `params_class` pydantic (falla ante clave desconocida/NaN), escribe OHLC real o sintético a temp dir M1-MT5, corre `Strategy()+signal_fn+backtest()`, devuelve frames + `summary()` + retornos diarios. Modos: real|sintético|nulo|tick_replay.
