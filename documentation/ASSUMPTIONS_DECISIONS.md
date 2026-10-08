@@ -144,3 +144,11 @@
 - Nulas: random/shuffled/noise x {iid, block-permuted}. Reporte
   `calibration_report.json` con FPR por etapa + curva de potencia + veredicto
   VALID/INVALID vs targets. Smoke CI: 60d, 2 nulos, 1 nivel (~15s).
+
+## J. Etapa 5 (2026-10-08)
+- HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
+  clip pre-normalizado que rompia el cap, Kelly en unidades anuales,
+  simplex infactible (2x0.3<1) ahora revienta con mensaje, resto Kelly-0
+  reparte el hueco. Guarda: max_weight*n >= 1 o configuracion invalida.
+- Capacity con impacto sqrt: a 1M y 200 trades/ano el decay supera 25%
+  (correcto: esa frecuencia no escala a ese capital).

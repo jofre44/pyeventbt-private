@@ -65,10 +65,10 @@ Estructura de código esperada:
 - [x] Medir FPR (objetivo ≤5%) y potencia a SR=1 (objetivo ≥70%), FPR por etapa, curva de potencia. Congelar umbrales en `calibration_report.json` referenciado por `master_hash`. Re-ejecutar ante cambio de umbrales/generador/versión mayor. CI con calibración reducida.
 
 ## Etapa 5 — PORTFOLIO
-- [ ] Implementar `portfolio/{allocation.py, exposure.py, stress_corr.py, mc_envelope.py, capacity.py}`: universo = todos los `promoted.csv`; correlación media + estrés (peor decil) + clustering jerárquico entre estrategias.
-- [ ] Exposición neta por divisa (`max_currency_net_exposure`), asignación HRP/risk parity con covarianza Ledoit-Wolf, vol targeting anual, Kelly fraccional cap 0.25, peso máximo por estrategia, rebalanceo mensual con banda.
-- [ ] Límites (DD cartera, apalancamiento, nº posiciones, margen) + MC bloques (5000 caminos, envolventes p95/p99: `P(DD>X)`, ES, max periodo perdedor, recovery time). Capacity ligero: grid `{10k,50k,250k,1M}`, decay Sharpe ≤25%.
-- [ ] Regla de admisión: solo si mejora Sharpe/DD de cartera neto de costes (beneficio marginal).
+- [x] Implementar `portfolio/{allocation.py, exposure.py, stress_corr.py, mc_envelope.py, capacity.py}`: universo = todos los `promoted.csv`; correlación media + estrés (peor decil) + clustering jerárquico entre estrategias.
+- [x] Exposición neta por divisa (`max_currency_net_exposure`), asignación HRP/risk parity con covarianza Ledoit-Wolf, vol targeting anual, Kelly fraccional cap 0.25, peso máximo por estrategia, rebalanceo mensual con banda.
+- [x] Límites (DD cartera, apalancamiento, nº posiciones, margen) + MC bloques (5000 caminos, envolventes p95/p99: `P(DD>X)`, ES, max periodo perdedor, recovery time). Capacity ligero: grid `{10k,50k,250k,1M}`, decay Sharpe ≤25%.
+- [x] Regla de admisión: solo si mejora Sharpe/DD de cartera neto de costes (beneficio marginal).
 
 ## Etapa 6 — LIVE
 - [ ] Implementar `live/parity.py`: replay diario real vs backtester mismos params; métricas ≤2% señales discordantes, slippage p95 ≤2 ticks, tracking error ≤0.5%. Chequear tz servidor, requotes, sufijos, tick size/lot step/swaps, cierres.
