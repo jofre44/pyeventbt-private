@@ -114,3 +114,15 @@
 - PBO/CPCV verificados en dos direcciones: ruido puro -> PBO aprox 0.5; edge plantado -> PBO<=0.30 PASS.
 - Sobre trials reales perdedores: PBO 0.82 + CPCV FAIL (correcto: elegir el mejor entre perdedores no persiste).
 - WF usa attr_sharpe_net_full (Sharpe real) para WFE, no el score robusto. Trials de folds van al ledger via optimize.
+
+## H. Etapa 4 (2026-10-08)
+- Sin ticks del broker: replay = feed M1 del broker (el motor ya corre sobre
+  M1) + cobertura tickvol + grid spread/slippage. Slippage como spread
+  aditivo; `delay_bars>1` N/A en senal v1 (time_generated fijo). Al no haber
+  SL/TP en senal, el orden intrabarra worst-case no aplica (salida time-stop
+  a cierre); se audita si la senal v2 anade SL/TP.
+- Regla de concentracion de regimen corregida: |PnL| bruto sobre celdas de
+  distinto tamano NO es dependencia. FAIL solo si una celda concentra >50%
+  del |PnL| familiar con hermana no positiva (ano que gana vs ano que pierde).
+- E2E nominal: puertas FAIL (pf 0.47, regimen) -> lockbox bloqueado, FORWARD
+  intacto. Orden puertas->lockbox verificado por guarda que revienta.
