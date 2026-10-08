@@ -35,6 +35,14 @@
   test de look-ahead sobre el feed (firewall actual cubre datos, no el engine).
 - **B3:** `intrabar_order=worst_case` (SL y TP en la misma barra gana el peor
   caso) es configuración del motor; el tick_replay de la Etapa 4 lo audita.
+- **B4 (2026-10-08):** el simulador exige los pares de conversión de divisa
+  (AUDUSD, USDCAD para cuenta USD) y no existen en `E:\Data_csv\MT5`. El
+  adaptador los genera como **tasa constante** (`universe.aux_fallback_rates`;
+  AUDUSD 0.66, USDCAD 1.36, medias aproximadas del periodo) y lo registra en
+  `aux_origins`. Demostrablemente neutro para ranking: margen/comisión/swap por
+  lote constantes ⇒ Sharpe/PF/maxdd% invariantes; solo la escala absoluta en $
+  queda aproximada. Si aparece el CSV real del broker se usa automáticamente.
+  Puerta: sizing de Etapa 4 y cuenta live exigen tipos reales (Etapa 5/6).
 
 ## C. Estadística
 - **C1:** Parquet vía **polars** (nativo, sin pyarrow instalado). `ledger.parquet`,
@@ -64,11 +72,17 @@
   pero NO implementados en la señal v1.0.0. Decisión: no añadir filtros antes de
   la primera pasada punta a punta (cada filtro es un grado de libertad).
 
-## E. Infra
-- **E1:** Sin `arch`, `mlflow`, `dvc`, `psycopg2` instalados. GARCH implementado
+## E. Infra- **E1:** Sin `arch`, `mlflow`, `dvc`, `psycopg2` instalados. GARCH implementado
   a mano (numpy/numba, Etapa 3); tracking MLflow/DVC diferido a Transversal
   (el ProcessLog + master_hash ya dan reproducibilidad mínima).
 - **E2:** Optuna 5.0 instalado. `constraints_func` existe en TPESampler v5
   (verificado en Etapa 1 antes de usarlo).
 - **E3:** `deterministic_mode:true, n_jobs:1` por defecto hasta que la Etapa 1
   valide el modo paralelo con JournalStorage.
+- **E4 (2026-10-08, Etapa 1):** params nominales (bb 20/2.5) en AUDCAD H1 dan
+  Sharpe ≈ −3/−4 y ~20 trades/mes: la estrategia base PIERDE en 2021. Es el
+  escenario honesto para calibrar el pipeline (debe rechazar, no rescatar).
+  Backtest 1 mes ≈ 2-3s, 3 meses ≈ 5s, determinista bit a bit con misma seed.
+  `study.best_value` revienta sin trials factibles → el runner calcula best
+  sobre completados con flag `best_feasible` (los infactibles conservan valor,
+  necesario para DSR/N_eff).

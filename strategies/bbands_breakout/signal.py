@@ -47,7 +47,7 @@ def make_signal_fn(
     current_trading_date: dict[str, Any] = {}
 
     def bbands_breakout(event, modules):  # type: ignore[no-untyped-def]
-        from pyeventbt.events.events import OrderType, SignalType
+        from pyeventbt.events.events import OrderType, SignalEvent, SignalType
         from pyeventbt.indicators.indicators import BollingerBands
 
         symbol = event.symbol

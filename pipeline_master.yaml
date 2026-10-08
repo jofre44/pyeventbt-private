@@ -22,6 +22,10 @@ universe:
   timeframes: [H1]
   data_dir: E:/Data_csv/MT5
   broker_server_tz: Europe/Athens
+  # Conversión de divisa: el simulador exige el par de conversión (AUDUSD,
+  # USDCAD) que NO existe en el disco del broker. Si aparece el CSV real se usa;
+  # si no, tasa constante documentada (neutra para ranking Sharpe/PF/maxdd%).
+  aux_fallback_rates: {AUDUSD: 0.66, USDCAD: 1.36}
   windows: {IS: [2021-01-03, 2023-12-31], FORWARD: [2024-01-03, 2025-12-31]}
   embargo: {rule: max_holding_plus_warmup, extra_bars: 10, apply_to: [is_forward, wf_folds, cpcv_folds]}
   min_trades_IS: 100
@@ -34,6 +38,7 @@ research_ledger:
 
 costs:
   commission_per_side_per_lot: 2.5
+  base_spread_points: 28.0
   spread_mult: 1.0
   slippage_ticks: 1
   swap_mode: from_yaml
