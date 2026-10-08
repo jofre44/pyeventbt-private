@@ -61,3 +61,27 @@ class Registry:
         self._data[strategy_id]["status"] = to
         self._data[strategy_id]["last_gate_evidence"] = gate_evidence
         self.save()
+
+
+def build_approval_package(run_dir: str | Path, out_dir: str | Path) -> Path:
+    """Approval Package con hashes: spec + master + manifests + trials +
+    clustering + validación + gates + promoted + calibration. Si una tercera
+    persona no puede reconstruir la selección, el sistema no está al nivel."""
+    import hashlib
+    import json
+
+    run_dir, out_dir = Path(run_dir), Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    manifest = []
+    for p in sorted(run_dir.rglob("*")):
+        if not p.is_file() or p.suffix in (".tmp",):
+            continue
+        h = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+        manifest.append({"file": str(p.relative_to(run_dir)), "sha256_16": h})
+    (out_dir / "hashes.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    (out_dir / "approval.json").write_text(json.dumps({
+        "run": run_dir.name,
+        "n_files": len(manifest),
+        "criterio": "promoted.csv + calibration_report.json + hashes verificables",
+    }, indent=1), encoding="utf-8")
+    return out_dir

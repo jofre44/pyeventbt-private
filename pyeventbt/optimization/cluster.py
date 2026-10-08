@@ -80,8 +80,12 @@ def auto_eps(X: np.ndarray, min_samples: int = 5, quantile: float = 0.90,
              metric: str = "manhattan") -> tuple[float, np.ndarray]:
     from sklearn.metrics import pairwise_distances
 
+    n = X.shape[0]
+    if n < 2:
+        return float("nan"), np.array([])
+    k = min(min_samples, n - 1)
     D = pairwise_distances(X, metric=metric)
-    kth = np.sort(D, axis=1)[:, min_samples]  # distancia al k-ésimo vecino
+    kth = np.sort(D, axis=1)[:, k]  # distancia al k-ésimo vecino
     return float(np.quantile(kth, quantile)), np.sort(kth)
 
 
@@ -124,23 +128,29 @@ def cluster_params(
                                    daily_returns)
     eps_cfg = cfg.get("eps", "auto")
     kdist = None
-    if eps_cfg == "auto":
-        eps, kdist = auto_eps(X, min_samples, float(cfg.get("eps_quantile", 0.90)), metric)
+    tiny = len(df) < 2 or X.shape[0] < 2
+    if tiny:
+        labels = np.full(len(df), -1)
+        eps = float("nan")
     else:
-        eps = float(eps_cfg)
+        if eps_cfg == "auto":
+            eps, kdist = auto_eps(X, min_samples, float(cfg.get("eps_quantile", 0.90)), metric)
+        else:
+            eps = float(eps_cfg)
 
-    if method == "dbscan":
-        from sklearn.cluster import DBSCAN
+        if method == "dbscan":
+            from sklearn.cluster import DBSCAN
 
-        labels = DBSCAN(eps=eps, min_samples=min_samples, metric=metric).fit_predict(X)
-    elif method == "hdbscan":
-        try:
-            import hdbscan  # type: ignore
-        except ImportError as exc:
-            raise RuntimeError("HDBSCAN exige `pip install hdbscan`") from exc
-        labels = hdbscan.HDBSCAN(min_cluster_size=min_samples, metric=metric).fit_predict(X)
-    else:
-        raise ValueError(f"método cluster desconocido: {method}")
+            labels = DBSCAN(eps=eps, min_samples=min(min_samples, len(df)),
+                            metric=metric).fit_predict(X)
+        elif method == "hdbscan":
+            try:
+                import hdbscan  # type: ignore
+            except ImportError as exc:
+                raise RuntimeError("HDBSCAN exige `pip install hdbscan`") from exc
+            labels = hdbscan.HDBSCAN(min_cluster_size=min_samples, metric=metric).fit_predict(X)
+        else:
+            raise ValueError(f"método cluster desconocido: {method}")
 
     D = pairwise_distances(X, metric=metric)
     scores = df["score"].to_numpy(dtype=float) if "score" in df.columns else np.zeros(len(df))

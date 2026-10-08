@@ -153,6 +153,19 @@
 - Kill manual > todo; heartbeat/stale/spread como halt; ordenes idempotentes
   con estado persistido (superviven reinicios).
 
+## T. Transversal (2026-10-08) — diferidos con motivo
+- Dashboard Rich: logging estructurado por ahora (sin `rich` instalado);
+  el dispatcher emite `strategy/asset/step/progress` por log. Anadir Rich
+  cuando haya runs largos en produccion.
+- Tracking MLflow / DVC / Docker digest: el ProcessLog + master_hash +
+  manifest_hash ya dan reproducibilidad minima auditable; MLflow/DVC son
+  mejora P2, no bloquean seleccion.
+- `live.monitor` como servicio CLI + behavioural regression en CI: pendientes
+  de la primera promocion real (sin sets promovidos no hay linea base).
+- Cluster con K < min_samples: todo ruido (-1), singletons top-decila
+  rescatados; eps_auto con k = min(min_samples, n-1). Sin este guarda el
+  smoke con 4 trials reventaba.
+
 ## J. Etapa 5 (2026-10-08)
 - HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
   clip pre-normalizado que rompia el cap, Kelly en unidades anuales,
