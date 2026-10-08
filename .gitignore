@@ -213,7 +213,7 @@ runs/
 research/*.parquet
 research/*.yaml
 research/calibration/
-live/
-bots_folder/
+/live/
+/bots_folder/
 *.parquet
 !tests/**/*.parquet

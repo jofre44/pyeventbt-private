@@ -71,12 +71,12 @@ Estructura de código esperada:
 - [x] Regla de admisión: solo si mejora Sharpe/DD de cartera neto de costes (beneficio marginal).
 
 ## Etapa 6 — LIVE
-- [ ] Implementar `live/parity.py`: replay diario real vs backtester mismos params; métricas ≤2% señales discordantes, slippage p95 ≤2 ticks, tracking error ≤0.5%. Chequear tz servidor, requotes, sufijos, tick size/lot step/swaps, cierres.
-- [ ] Implementar `live/rollout.py`: `paper(60d,30 trades)→micro×0.1(60d)→scaled×0.5(90d)→full`, avance solo con paridad OK + Sharpe/DD en envolvente + cero incidentes. Champion/challenger para versiones. Nunca params en caliente.
-- [ ] Implementar `live/monitor.py`: Sharpe rodante vs p5, DD vs envolvente MC (alerta p95, halt p99), CUSUM/SPRT (k=0.5,h=5), deriva frecuencia/duración/hit rate/slippage/spread, KS retornos. Health score GREEN/YELLOW/ORANGE/RED. Tests live incluidos.
-- [ ] Implementar `live/risk_limits.py`: jerarquía por trade/día/estrategia/cartera + operacionales (heartbeat 30s, stale 120s, spread máx 30). Acciones `halt/flatten` + kill manual. Capa independiente de la estrategia. Test `test_live_risk_limits`.
-- [ ] Implementar `live/reconcile.py`: cada 60s compara posiciones/órdenes/equity vs broker; mismatch→`halt_and_alert`; órdenes idempotentes (magic+comentario único). Persistir estado. Tests `test_live_reconcile`, `test_order_idempotency`.
-- [ ] Política retirada pre-registrada: DD>p99 o 2 CUSUM o Sharpe<p5 30d → paper/shadow; re-opt = run nuevo completo. Infra: VPS, NTP, log inmutable, backups, verificar soporte MT5 de PyEventBT.
+- [x] Implementar `live/parity.py`: replay diario real vs backtester mismos params; métricas ≤2% señales discordantes, slippage p95 ≤2 ticks, tracking error ≤0.5%. Chequear tz servidor, requotes, sufijos, tick size/lot step/swaps, cierres.
+- [x] Implementar `live/rollout.py`: `paper(60d,30 trades)→micro×0.1(60d)→scaled×0.5(90d)→full`, avance solo con paridad OK + Sharpe/DD en envolvente + cero incidentes. Champion/challenger para versiones. Nunca params en caliente.
+- [x] Implementar `live/monitor.py`: Sharpe rodante vs p5, DD vs envolvente MC (alerta p95, halt p99), CUSUM/SPRT (k=0.5,h=5), deriva frecuencia/duración/hit rate/slippage/spread, KS retornos. Health score GREEN/YELLOW/ORANGE/RED. Tests live incluidos.
+- [x] Implementar `live/risk_limits.py`: jerarquía por trade/día/estrategia/cartera + operacionales (heartbeat 30s, stale 120s, spread máx 30). Acciones `halt/flatten` + kill manual. Capa independiente de la estrategia. Test `test_live_risk_limits`.
+- [x] Implementar `live/reconcile.py`: cada 60s compara posiciones/órdenes/equity vs broker; mismatch→`halt_and_alert`; órdenes idempotentes (magic+comentario único). Persistir estado. Tests `test_live_reconcile`, `test_order_idempotency`.
+- [x] Política retirada pre-registrada: DD>p99 o 2 CUSUM o Sharpe<p5 30d → paper/shadow; re-opt = run nuevo completo. Infra: VPS, NTP, log inmutable, backups, verificar soporte MT5 de PyEventBT.
 
 ## Transversal — Runner, gobernanza, tests, DONE
 - [ ] Implementar `runner/{stage.py, process_log.py, master_config.py, dashboard/}`: `Stage(name, discover_inputs, run, persist)`, `ProcessLog` atómico (`tmp+os.replace`), resume por `config_hash`, dashboard Rich sin `print`. Layout `runs/{est}/{ts}_{githash}/` + `research/` + `live/` según §Orquestación.

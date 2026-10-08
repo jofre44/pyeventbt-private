@@ -145,6 +145,14 @@
   `calibration_report.json` con FPR por etapa + curva de potencia + veredicto
   VALID/INVALID vs targets. Smoke CI: 60d, 2 nulos, 1 nivel (~15s).
 
+## K. Etapa 6 (2026-10-08)
+- Paridad: mismatch senales + slippage p95 + tracking error con gates del
+  maestro. Bug: `or 1e9` convertia TE=0.0 en FAIL (falsy); comparacion
+  explicita con isfinite. CUSUM verificado con salto de nivel determinista
+  (el ruido N(0,1) con seed 0 daba falsa alarma: ARL finito, test fragil).
+- Kill manual > todo; heartbeat/stale/spread como halt; ordenes idempotentes
+  con estado persistido (superviven reinicios).
+
 ## J. Etapa 5 (2026-10-08)
 - HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
   clip pre-normalizado que rompia el cap, Kelly en unidades anuales,
