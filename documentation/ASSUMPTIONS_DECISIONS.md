@@ -72,7 +72,7 @@
   pero NO implementados en la señal v1.0.0. Decisión: no añadir filtros antes de
   la primera pasada punta a punta (cada filtro es un grado de libertad).
 
-## E. Infra
+## E. Infra (notas E1–E5 tras la sección F)
 ## F. Validación sintética (Etapa 3)
 - **F1 (2026-10-08):** simular a H1 e inyectar al conector M1→H1 NO es neutro
   (mismos 21 trades pero PF 0.47 vs 0.57: el re-muestreo + spread medio cambian
@@ -85,7 +85,10 @@
   estrategia con costes reales. Se reporta `cost_drag` como flag.
 - **F3 (2026-10-08):** tolerancia de validación con suelo absoluto en ac1_abs
   (0.05): la desviación relativa sobre bases ~0.08 no tiene significado
-  económico. E2E 1 mes: validación PASS, ranks 50/50/100 → GREEN.- **E1:** Sin `arch`, `mlflow`, `dvc`, `psycopg2` instalados. GARCH implementado
+  económico. E2E 1 mes: validación PASS, ranks 50/50/100 → GREEN.
+
+## E. Infra — notas E1–E5
+- **E1:** Sin `arch`, `mlflow`, `dvc`, `psycopg2` instalados. GARCH implementado
   a mano (numpy/numba, Etapa 3); tracking MLflow/DVC diferido a Transversal
   (el ProcessLog + master_hash ya dan reproducibilidad mínima).
 - **E2:** Optuna 5.0 instalado. `constraints_func` existe en TPESampler v5
@@ -106,3 +109,8 @@
   el objetivo redondea al step ANTES del backtest y persiste
   `params_rounded`; el cluster solo ve grid válido. E2E 8 trials reales:
   1 cluster, N_eff=2 (corr media 0.76: todos pierden igual, correcto).
+
+## G. Etapa 3B (2026-10-08)
+- PBO/CPCV verificados en dos direcciones: ruido puro -> PBO aprox 0.5; edge plantado -> PBO<=0.30 PASS.
+- Sobre trials reales perdedores: PBO 0.82 + CPCV FAIL (correcto: elegir el mejor entre perdedores no persiste).
+- WF usa attr_sharpe_net_full (Sharpe real) para WFE, no el score robusto. Trials de folds van al ledger via optimize.

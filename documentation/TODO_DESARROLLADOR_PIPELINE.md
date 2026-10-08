@@ -46,10 +46,10 @@ Estructura de código esperada:
 - [x] Tests: `test_scoring`, `test_synthetic_determinism`, `test_calibration_smoke`.
 
 ## Etapa 3B — WF / CPCV / PBO
-- [ ] Implementar `robustness/cscv_pbo.py`: matriz daily_returns → 10 bloques → mitades train/test con purga/embargo → PBO, logits, degradación IS→OOS. Gate `PBO<=0.30`. Test `test_cscv_pbo`.
-- [ ] Implementar `robustness/cpcv.py`: por superviviente, distribución Sharpe en caminos CPCV (`n_groups=10, k_test=2, purge=from_embargo`). Gate mediana>0 y ≥70% caminos positivos.
-- [ ] Implementar `robustness/walkforward.py`: anclado, train creciente, test 12m, ~5 folds, mini-pipeline completo por fold (Optuna reducida `n_trials_per_fold=100` + cluster + selección) con embargo. `WFE=Sharpe_test/Sharpe_train>=0.5` y ≥70% folds positivos. Todos los trials de folds cuentan en ledger.
-- [ ] Salidas: `wf_cpcv/<...>.csv` + `lambda_logits.png + oos_degradation.png`. Si PBO/WFE fuera de gate → ámbar/rojo, no forzar Etapa 4.
+- [x] Implementar `robustness/cscv_pbo.py`: matriz daily_returns → 10 bloques → mitades train/test con purga/embargo → PBO, logits, degradación IS→OOS. Gate `PBO<=0.30`. Test `test_cscv_pbo`.
+- [x] Implementar `robustness/cpcv.py`: por superviviente, distribución Sharpe en caminos CPCV (`n_groups=10, k_test=2, purge=from_embargo`). Gate mediana>0 y ≥70% caminos positivos.
+- [x] Implementar `robustness/walkforward.py`: anclado, train creciente, test 12m, ~5 folds, mini-pipeline completo por fold (Optuna reducida `n_trials_per_fold=100` + cluster + selección) con embargo. `WFE=Sharpe_test/Sharpe_train>=0.5` y ≥70% folds positivos. Todos los trials de folds cuentan en ledger.
+- [x] Salidas: `wf_cpcv/<...>.csv` + `lambda_logits.png + oos_degradation.png`. Si PBO/WFE fuera de gate → ámbar/rojo, no forzar Etapa 4.
 
 ## Etapa 4 — SELECT: decorrelación, ejecución, puertas, lockbox, sizing
 - [ ] Implementar `robustness/decorrelation.py`: curvas en real con mismos costes, `resample:D`, métricas (`n_trades, pf, r2, sharpe_net, calmar, turnover`); prefiltro `n_trades<30`/varianza-cero fuera; correlación sobre retornos (pearson|spearman), unilateral `rho<=0.7` (negativo se queda); score `0.4*sharpe+0.3*pf_winsor_p95+0.2*r2-0.1*turnover`; greedy/cluster hasta `max_sets=5`; reportar `n_efectivo=1/sum(w²)`. Test `test_decorr_unilateral`.
