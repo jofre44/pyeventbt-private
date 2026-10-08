@@ -31,17 +31,17 @@ logger = logging.getLogger("pyeventbt")
 
 # Strategy Configuration
 strategy_id = "1234"
-strategy = Strategy(logging_level=logging.INFO)
+strategy = Strategy() #logging_level=logging.INFO)
 
 # Timeframes
-signal_timeframe = StrategyTimeframes.ONE_HOUR
+signal_timeframe = StrategyTimeframes.ONE_HOUR #ONE_HOUR
 daily_timeframe = StrategyTimeframes.ONE_DAY
 
-strategy_timeframes = [signal_timeframe, daily_timeframe]
+strategy_timeframes = [signal_timeframe]
 
 # Trading Configuration
 symbols_to_trade = ['EURUSD']
-starting_capital = 100000
+starting_capital = 10000
 
 # Strategy Parameters
 bb_period = 20
@@ -178,7 +178,8 @@ backtest = strategy.backtest(
 )
 
 print("Backtest finished")
-backtest.plot()
+# backtest.plot()
+backtest.save_report("informe.html") 
 
 # Example: Running live with MT5
 # mt5_config = Mt5PlatformConfig(
