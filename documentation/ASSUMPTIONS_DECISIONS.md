@@ -110,8 +110,7 @@
   `params_rounded`; el cluster solo ve grid válido. E2E 8 trials reales:
   1 cluster, N_eff=2 (corr media 0.76: todos pierden igual, correcto).
 
-## G. Etapa 3B (2026-10-08)
-- PBO/CPCV verificados en dos direcciones: ruido puro -> PBO aprox 0.5; edge plantado -> PBO<=0.30 PASS.
+## G. Etapa 3B (2026-10-08)- PBO/CPCV verificados en dos direcciones: ruido puro -> PBO aprox 0.5; edge plantado -> PBO<=0.30 PASS.
 - Sobre trials reales perdedores: PBO 0.82 + CPCV FAIL (correcto: elegir el mejor entre perdedores no persiste).
 - WF usa attr_sharpe_net_full (Sharpe real) para WFE, no el score robusto. Trials de folds van al ledger via optimize.
 
@@ -126,3 +125,22 @@
   del |PnL| familiar con hermana no positiva (ano que gana vs ano que pierde).
 - E2E nominal: puertas FAIL (pf 0.47, regimen) -> lockbox bloqueado, FORWARD
   intacto. Orden puertas->lockbox verificado por guarda que revienta.
+
+## I. Viabilidad estrategia/universo (2026-10-08, hallazgo principal M)
+- Con spread medio 28pts + comision, un round-trip diario en AUDCAD cuesta
+  ~0.7 USD a lote minimo contra un drift SR=3 (0.00087/dia ~= 0.31 USD/trade).
+  Resultado: potencia neta 0 hasta edge bruto SR~10. NO es un bug: son los
+  costes congelados hablando. Opciones (decision del usuario): (a) par mas
+  barato (EURUSD ~10pts, pero no esta en el disco); (b) holding multi-dia
+  (el time-stop diario es el devorador de costes); (c) aceptar que el pipeline
+  rechaza este combo (veredicto honesto). Recomendacion quant: (b)+(a).
+- `plant_drift_m1` debio componer entre dias (ancla = close plantado previo);
+  sin componer solo sobrevive el drift del ultimo dia. Bug cazado por la
+  propia calibracion.
+- La sonda de potencia debe ser LONG-only (`drift_rider`): tendencia + moneda
+  al aire = potencia 0 por construccion. FPR puertas 0/12 en 60d.
+
+## M. Meta-etapa M (2026-10-08)
+- Nulas: random/shuffled/noise x {iid, block-permuted}. Reporte
+  `calibration_report.json` con FPR por etapa + curva de potencia + veredicto
+  VALID/INVALID vs targets. Smoke CI: 60d, 2 nulos, 1 nivel (~15s).

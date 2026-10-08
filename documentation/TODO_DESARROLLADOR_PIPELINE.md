@@ -61,8 +61,8 @@ Estructura de código esperada:
 - [x] ORDEN OBLIGATORIO: selección → jitter → replay → puertas → lockbox → sizing (nunca puertas después del lockbox).
 
 ## Meta-etapa M — CALIBRACIÓN
-- [ ] Implementar `calibration/{null_strategies.py, planted_edge.py, report.py}`: 200 nulas (`random_entries, shuffled_signals, indicator_on_noise`) sobre `iid_synthetic` y `real_block_permuted`; edge plantado con drift para Sharpe {0.3,0.6,1.0} ×5 seeds.
-- [ ] Medir FPR (objetivo ≤5%) y potencia a SR=1 (objetivo ≥70%), FPR por etapa, curva de potencia. Congelar umbrales en `calibration_report.json` referenciado por `master_hash`. Re-ejecutar ante cambio de umbrales/generador/versión mayor. CI con calibración reducida.
+- [x] Implementar `calibration/{null_strategies.py, planted_edge.py, report.py}`: 200 nulas (`random_entries, shuffled_signals, indicator_on_noise`) sobre `iid_synthetic` y `real_block_permuted`; edge plantado con drift para Sharpe {0.3,0.6,1.0} ×5 seeds.
+- [x] Medir FPR (objetivo ≤5%) y potencia a SR=1 (objetivo ≥70%), FPR por etapa, curva de potencia. Congelar umbrales en `calibration_report.json` referenciado por `master_hash`. Re-ejecutar ante cambio de umbrales/generador/versión mayor. CI con calibración reducida.
 
 ## Etapa 5 — PORTFOLIO
 - [ ] Implementar `portfolio/{allocation.py, exposure.py, stress_corr.py, mc_envelope.py, capacity.py}`: universo = todos los `promoted.csv`; correlación media + estrés (peor decil) + clustering jerárquico entre estrategias.
