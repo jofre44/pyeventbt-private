@@ -13,6 +13,8 @@ from typing import Any
 
 import yaml
 
+from decimal import Decimal
+
 IMMUTABLE_PATHS = (
     ("costs",),
     ("universe", "windows"),
@@ -28,9 +30,24 @@ REQUIRED_TOP = (
 )
 
 
+def _denormalize(node: Any) -> Any:
+    """El core (SharedData) registra un constructor global que convierte los
+    floats YAML en Decimal. Para el pipeline (Optuna/sklearn/JSON) se
+    normaliza a float/int nativos en la carga."""
+    if isinstance(node, Decimal):
+        f = float(node)
+        return int(f) if f.is_integer() else f
+    if isinstance(node, dict):
+        return {k: _denormalize(v) for k, v in node.items()}
+    if isinstance(node, (list, tuple)):
+        return [_denormalize(v) for v in node]
+    return node
+
+
 def load_master(path: str | Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
+    cfg = _denormalize(cfg)
     missing = [k for k in REQUIRED_TOP if k not in cfg]
     if missing:
         raise ValueError(f"pipeline_master.yaml incompleto, faltan: {missing}")

@@ -77,7 +77,12 @@ def make_objective(
     }
 
     def objective(trial: optuna.Trial) -> float:
-        params = sample_search_space(trial, master["strategy"]["search_space"])
+        from pyeventbt.optimization.cluster import round_to_space
+
+        params = round_to_space(
+            sample_search_space(trial, master["strategy"]["search_space"]),
+            master["strategy"]["search_space"],
+        )
         seed = derive_seed(master["seed"], trial.number)
 
         if cfg.get("early_gate", {}).get("enabled"):
@@ -110,6 +115,7 @@ def make_objective(
             trial.set_user_attr(k, float(v) if v is not None and np.isfinite(v) else None)
         trial.set_user_attr("sharpe_net_full", s["sharpe_net"])
         trial.set_user_attr("params_hash", res.get("params_hash"))
+        trial.set_user_attr("params_rounded", params)
 
         c = cfg["constraints"]
         trial.set_user_attr("constraints", [

@@ -86,3 +86,10 @@
   `study.best_value` revienta sin trials factibles → el runner calcula best
   sobre completados con flag `best_feasible` (los infactibles conservan valor,
   necesario para DSR/N_eff).
+- **E5 (2026-10-08, Etapa 2):** importar `pyeventbt` registra un constructor
+  global en `yaml.SafeLoader` que convierte floats en `Decimal` (precisión de
+  precios del core; no tocar). `load_master` normaliza a nativos. Además
+  Optuna guarda `suggest_float(step)` con ruido binario (2.4000000000000004):
+  el objetivo redondea al step ANTES del backtest y persiste
+  `params_rounded`; el cluster solo ve grid válido. E2E 8 trials reales:
+  1 cluster, N_eff=2 (corr media 0.76: todos pierden igual, correcto).

@@ -27,12 +27,12 @@ Estructura de código esperada:
 - [x] Tests: `test_optuna_resume` (20+20==40), `test_constraints_func`, `test_params_filter`, `test_regression_run` (deterministic_mode, n_trials=20).
 
 ## Etapa 2 — CLUSTER
-- [ ] Implementar `optimization/cluster.py`: scaler robusto (IQR), categorical one-hot, redondeo a `step` válido con re-validación.
-- [ ] DBSCAN con `eps` auto (k-distance p90, registrar `eps_auto`, `min_samples=5`, `metric=manhattan`) + opción HDBSCAN.
-- [ ] Representante medoide (no moda); alternativas `best_sharpe/ensemble3`. `keep_singleton_outliers:true` (top-decila Sharpe se conserva). Opción `params_plus_behavior` (params + retornos mensuales peso 0.3).
-- [ ] Implementar `optimization/neff.py` (ONC/jerárquico sobre `1-rho` de `daily_returns`) → `cluster/neff.json {S, N_eff, method}`. Reportar DSR con S y N_eff.
-- [ ] Salidas + diagnósticos: `cluster/<EST>_<PAIR>_<TF>.csv`, `diagnostics/{kdistance.png, sizes_hist.png, pca2d.png, members/}`.
-- [ ] Tests: `test_cluster` (medoide vs moda, eps auto), `test_neff`.
+- [x] Implementar `optimization/cluster.py`: scaler robusto (IQR), categorical one-hot, redondeo a `step` válido con re-validación.
+- [x] DBSCAN con `eps` auto (k-distance p90, registrar `eps_auto`, `min_samples=5`, `metric=manhattan`) + opción HDBSCAN.
+- [x] Representante medoide (no moda); alternativas `best_sharpe/ensemble3`. `keep_singleton_outliers:true` (top-decila Sharpe se conserva). Opción `params_plus_behavior` (params + retornos mensuales peso 0.3).
+- [x] Implementar `optimization/neff.py` (ONC/jerárquico sobre `1-rho` de `daily_returns`) → `cluster/neff.json {S, N_eff, method}`. Reportar DSR con S y N_eff.
+- [x] Salidas + diagnósticos: `cluster/<EST>_<PAIR>_<TF>.csv`, `diagnostics/{kdistance.png, sizes_hist.png, pca2d.png, members/}`.
+- [x] Tests: `test_cluster` (medoide vs moda, eps auto), `test_neff`.
 
 ## Etapa 3 — SYNTH + EDGE
 - [ ] Implementar `robustness/synthetic.py`: `SyntheticMarketGenerator` GARCH(1,1,1)-t con asimétrico (`@njit`), `generate_universe`, `build_ohlc_fast`, cache por (símbolo,TF), `to_csv()` M1-MT5. Validar que replica vol/autocorr(|r|)/kurtosis/rango diario ±20%. Spread sintético = `spread_medio_real×(1+estrés)`. Generador nulo `iid_residuals`. Soporte stationary bootstrap p=0.1. Seeds `(master.seed, cluster_id, sim_idx)`.

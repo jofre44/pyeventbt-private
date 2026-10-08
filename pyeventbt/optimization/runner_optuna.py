@@ -145,7 +145,9 @@ def persist_study(
             "state": t.state.name,
             "feasible": t.user_attrs.get("feasible"),
             "pruned_at": "prefix" if t.state == optuna.trial.TrialState.PRUNED else None,
-            **{f"param_{k}": v for k, v in (t.params or {}).items()},
+            # Params REDONDEADOS al step (los realmente backtesteados); Optuna
+            # guarda el float crudo de suggest_* con ruido binario.
+            **{f"param_{k}": v for k, v in (t.user_attrs.get("params_rounded") or t.params or {}).items()},
             **{f"attr_{k}": (str(v) if isinstance(v, (list, dict)) else v)
                for k, v in (t.user_attrs or {}).items() if k != "constraints"},
         }
@@ -178,7 +180,8 @@ def filter_candidates(
             and (a.get("pf") if a.get("pf") is not None else -1e9) >= c["min_pf"]
         ):
             rows.append({"trial_number": t.number, "score": t.value, **t.params})
-    df = pd.DataFrame(rows).sort_values("score", ascending=False) if rows else pd.DataFrame()
+    df = pd.DataFrame(rows).sort_values("score", ascending=False) if rows else pd.DataFrame(
+        columns=["trial_number", "score"])
     k = 3 * int(master["cluster"].get("max_clusters_kept", 250))
     top = df.head(k) if not df.empty else df
     top.to_csv(Path(out_dir) / f"{name}_candidatos.csv", index=False)
