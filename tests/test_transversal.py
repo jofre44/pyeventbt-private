@@ -1,4 +1,4 @@
-"""Tests Transversal: registry de ciclo de vida + approval package + dispatcher prep."""
+"""Tests Transversal: registry de ciclo de vida + approval package + dispatcher."""
 import pytest
 
 from pyeventbt.research.registry import ALLOWED, Registry, build_approval_package
@@ -66,3 +66,19 @@ def test_dispatcher_prep_outputs(tmp_path):
 
     budget = json.loads((run_dir / "00_prep" / "budget.json").read_text())
     assert budget["n_dim"] == 2 and "seed_derivation" in budget
+
+
+def test_process_log_nan_counts_survive_reload(tmp_path):
+    """NaN/inf en counts se guardan null: el safe_load posterior (con el
+    constructor Decimal global del core) no debe reventar."""
+    import yaml
+
+    import pyeventbt.broker.mt5_broker.shared.shared_data  # noqa: F401 (registra constructor)
+    from pyeventbt.runner.process_log import ProcessLog
+
+    log = ProcessLog(tmp_path / "process_logs.yaml")
+    log.init_stage("X", "H1", "wfcpcv", "abc")
+    log.mark_done("X", "H1", "wfcpcv", counts={"pbo": None, "wfe": float("nan")})
+    state = yaml.safe_load((tmp_path / "process_logs.yaml").read_text(encoding="utf-8"))
+    assert state["X|H1|wfcpcv"]["counts"] == {"pbo": None, "wfe": None}
+    assert log.is_done("X", "H1", "wfcpcv", "abc")

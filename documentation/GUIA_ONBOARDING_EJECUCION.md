@@ -319,10 +319,10 @@ singletons top-decila conservados, `N_eff` por correlación de retornos
 (`kdistance.png`, `sizes_hist.png`, `pca2d.png`). El DSR se reporta con S
 (conservador) y `N_eff` (optimista); el veto usa `N_eff`.
 
-### Etapa 3 — SYNTH + EDGE (librería: se orquesta por representante)
+### Etapa 3 — SYNTH + EDGE (automatizada en el dispatcher)
 
-El dispatcher aún no la automatiza (muestra el puntero); se corre con
-`pyeventbt.robustness.validate_synthetic.run_consistency()` por representante:
+Por representante (`--max-reps` limita el coste): `run_consistency()` con
+`n_sim_screening` sims GJR-GARCH-t a **M1**
 
 - **(a) Consistencia**: 1 backtest real + N sintéticos GJR-GARCH-t a **M1**
   (siempre a M1: simular a H1 no es neutro — supuesto F1), `score_percentile_rank`
@@ -341,7 +341,7 @@ El dispatcher aún no la automatiza (muestra el puntero); se corre con
 Veredicto por set: VERDE / ÁMBAR / ROJO. Pasan a 3B verdes + ámbares con
 `edge_p_adj < alpha`.
 
-### Etapa 3B — WF / CPCV / PBO (librería)
+### Etapa 3B — WF / CPCV / PBO (automatizada en el dispatcher)
 
 - `cscv_pbo()`: PBO sobre la matriz de trials. **Gate `PBO ≤ 0.30`.**
 - `cpcv_distribution()`: por superviviente. **Gate: mediana > 0 y ≥70% caminos positivos.**
@@ -350,7 +350,7 @@ Veredicto por set: VERDE / ÁMBAR / ROJO. Pasan a 3B verdes + ámbares con
   cuentan en el ledger. Mide el *procedimiento*, no un set: si falla, el
   problema está en el espacio o la estrategia.
 
-### Etapa 4 — SELECT (librería, **orden obligatorio**)
+### Etapa 4 — SELECT (automatizada; **orden obligatorio garantizado por construcción**)
 
 ```
 selección → jitter ±10% → replay + grid estrés → PUERTAS → LOCKBOX → sizing/SL-TP
@@ -473,8 +473,10 @@ Recomendación quant del proyecto: (b)+(a).
   y `live.monitor` como CLI. **Lo real**: `python -m pyeventbt.calibration.run`,
   `python -m pyeventbt.robustness.report`; **`live/monitor.py` es librería,
   no tiene CLI** (pendiente, ver sec. T).
-- El dispatcher automatiza `prep, optimize, cluster`; `synth, wfcpcv, select`
-  hoy son llamadas de librería (el dispatcher solo imprime el puntero).
+- El dispatcher automatiza `prep, optimize, cluster, synth, wfcpcv, select,
+  calibrate` con resume (por combo y por representante). El lockbox exige
+  `--auto-lockbox`; sin ella los sets quedan en `AWAITING_LOCKBOX`.
+  Portfolio y live siguen siendo librería (Etapas 5-6).
 - `research/` y `runs/` **no existen** en un checkout limpio: se crean al
   correr (están en `.gitignore`, son estado, no código).
 

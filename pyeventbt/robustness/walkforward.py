@@ -111,7 +111,11 @@ def walkforward(
         rows.append({"fold": fi, "sharpe_train": train_sr,
                      "sharpe_test": s_test, "params": params,
                      "n_trials": len(d["trial_number"])})
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=["fold", "sharpe_train", "sharpe_test", "params", "n_trials"])
+    if df.empty:
+        df.to_csv(out / "walkforward.csv", index=False)
+        return {"folds": [], "wfe": float("nan"), "frac_positive": 0.0,
+                "verdict": "NODATA", "note": "sin folds (ventana corta para el esquema anclado)"}
     pos = float((df["sharpe_test"] > 0).mean()) if len(df) else 0.0
     with np.errstate(all="ignore"):
         ratio = (df["sharpe_test"] / df["sharpe_train"].replace(0, np.nan)).replace([np.inf, -np.inf], np.nan)

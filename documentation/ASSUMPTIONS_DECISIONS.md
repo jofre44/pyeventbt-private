@@ -166,6 +166,17 @@
   rescatados; eps_auto con k = min(min_samples, n-1). Sin este guarda el
   smoke con 4 trials reventaba.
 
+## U. Dispatcher completo (2026-10-09)
+- `synth/wfcpcv/select/calibrate` integrados con resume por representante
+  (checkpoint CSV por rep/set) y `--max-reps` para acotar coste. El lockbox
+  exige `--auto-lockbox` explícito: sin ella, `AWAITING_LOCKBOX` y FORWARD
+  intacto (el consumo irreversible no debe ocurrir por defecto).
+- Bug real cazado por el E2E: `wfe: .nan` en `process_logs.yaml` reventaba
+  el `safe_load` posterior (constructor Decimal global del core). Ahora
+  `ProcessLog` sanea NaN/inf -> null al escribir. Moraleja: ningún float
+  no-finto puede llegar a un YAML que el pipeline re-lea.
+- Walkforward con 0 folds (ventana corta) devuelve NODATA, no excepción.
+
 ## J. Etapa 5 (2026-10-08)- HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
   clip pre-normalizado que rompia el cap, Kelly en unidades anuales,
   simplex infactible (2x0.3<1) ahora revienta con mensaje, resto Kelly-0

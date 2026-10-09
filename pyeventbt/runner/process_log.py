@@ -17,6 +17,20 @@ import yaml
 logger = logging.getLogger("pyeventbt.pipeline")
 
 
+def _sanitize(node: Any) -> Any:
+    """NaN/inf no sobreviven al YAML que el propio pipeline re-lee (el
+    constructor Decimal global del core revienta con `.nan`). Se guardan null."""
+    import math
+
+    if isinstance(node, float) and not math.isfinite(node):
+        return None
+    if isinstance(node, dict):
+        return {k: _sanitize(v) for k, v in node.items()}
+    if isinstance(node, (list, tuple)):
+        return [_sanitize(v) for v in node]
+    return node
+
+
 @dataclass
 class StageContext:
     config: dict[str, Any]
@@ -56,7 +70,7 @@ class ProcessLog:
         fd, tmp = tempfile.mkstemp(dir=str(self.path.parent), suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                yaml.safe_dump(self.state, f, sort_keys=True)
+                yaml.safe_dump(_sanitize(self.state), f, sort_keys=True)
             os.replace(tmp, self.path)
         except BaseException:
             try:
