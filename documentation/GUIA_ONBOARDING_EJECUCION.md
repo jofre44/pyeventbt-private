@@ -123,8 +123,12 @@ pyeventbt-private/
 
 - Ruta configurada: `universe.data_dir` = `E:/Data_csv/MT5`.
 - Un CSV por símbolo: `E:/Data_csv/MT5/AUDCAD.csv`.
-  - Actualmente solo existen **AUDCAD** (~137 MB) y **AUDCHF** (~4.5 GB).
-  - El maestro de referencia usa **AUDCAD H1** (no hay EURUSD en disco).
+  - La carpeta contiene **26 pares** (AUDCAD, AUDCHF, AUDJPY, AUDNZD, AUDUSD,
+    CADCHF, CHFJPY, EURCAD, EURCHF, EURGBP, EURJPY, EURNZD, EURUSD, GBPAUD,
+    GBPCAD, GBPCHF, GBPJPY, GBPNZD, GBPUSD, NZDCAD, NZDCHF, NZDJPY, NZDUSD,
+    USDCAD, USDCHF, USDJPY, ~130 MB cada uno, 2021-01/02 → 2026-10).
+  - El maestro de referencia usa los 26 × M30/H1/H4/D1 (104 combos).
+    Empieza con `--pair/--timeframe` antes del barrido completo.
 - Formato MT5 **sin cabecera**: `YYYY.MM.DD,HH:MM,open,high,low,close,tickvol,volume,spread`
   (la hora viene **sin segundos**; el adaptador normaliza a `HH:MM:SS` al
   escribir su temp dir — supuesto A1).
@@ -132,7 +136,8 @@ pyeventbt-private/
 ### 3.2 El detalle que más dolores de cabeza da: pares de conversión
 
 El simulador exige el par de conversión de divisa para cuenta USD
-(ej. AUDCAD necesita AUDUSD y USDCAD) y **esos CSV no existen en disco**.
+(ej. AUDCAD necesita AUDUSD y USDCAD). Esos CSV **sí existen** en la carpeta
+actual, así que se usan los reales automáticamente.
 Comportamiento del adaptador (`_ensure_aux_csvs`):
 
 1. Si el CSV auxiliar existe en `data_dir`, lo recorta a la ventana y lo usa.
@@ -141,10 +146,9 @@ Comportamiento del adaptador (`_ensure_aux_csvs`):
    `aux_origins`.
 
 Es neutro para *ranking* (Sharpe/PF/maxdd% invariantes a la constante), pero
-la escala absoluta en $ queda aproximada. **Puerta:** el sizing de Etapa 4 y
-cualquier cuenta live exigen tipos reales (supuesto B4). Si algún día
-consigues los CSV reales del bróker, déjalos caer en `data_dir` y se usarán
-automáticamente, sin cambiar código.
+la escala absoluta en $ queda aproximada. El fallback solo cubre huecos
+puntuales. **Puerta:** el sizing de Etapa 4 y cualquier cuenta live exigen
+tipos reales (supuesto B4).
 
 ---
 
@@ -455,7 +459,9 @@ Menos que eso es un informe, no una selección.
 
 Con spread medio 28 pts + comisión en AUDCAD, un round-trip diario cuesta
 ~0.7 USD a lote mínimo frente a un drift SR=3 (~0.31 USD/trade). La potencia
-neta es 0 hasta edge bruto ~SR10. Opciones: (a) par más barato, (b) holding
+neta es 0 hasta edge bruto ~SR10 (medido en AUDCAD H1, spread 28).
+Opciones: (a) par más barato — **ya disponible: EURUSD spread 6**,
+GBPUSD/AUDUSD también baratos —, (b) holding
 multi-día (el time-stop diario devora costes), (c) aceptar el rechazo honesto.
 Recomendación quant del proyecto: (b)+(a).
 

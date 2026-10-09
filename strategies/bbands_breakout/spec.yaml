@@ -12,12 +12,17 @@ hypothesis: >
   sin mantener overnight. Fundamento: ciclo de liquidez Londres/NY, no patrón minado.
 
 universe:
-  symbols: [AUDCAD]
-  signal_timeframe: H1
+  symbols: [AUDCAD, AUDCHF, AUDJPY, AUDNZD, AUDUSD, CADCHF, CHFJPY, EURCAD,
+    EURCHF, EURGBP, EURJPY, EURNZD, EURUSD, GBPAUD, GBPCAD, GBPCHF, GBPJPY,
+    GBPNZD, GBPUSD, NZDCAD, NZDCHF, NZDJPY, NZDUSD, USDCAD, USDCHF, USDJPY]
+  signal_timeframes: [M30, H1, H4, D1]
 
 session:
-  order_placement: "08:00"      # hora servidor broker
-  flat_all_by: "21:00"          # time-stop diario: cierra todo, cancela pendientes
+  order_placement: "08:00"      # hora servidor broker (solo TFs intradía)
+  flat_all_by: "21:00"          # time-stop diario (solo TFs intradía)
+  daily_tfs:                    # D1 y superiores: sin sesión intradía;
+    mode: one_shot_per_bar      # una oportunidad por barra + flat en cada
+    holding_bars: 1             # barra nueva (time-stop equivalente)
 
 entry:
   on: closed_bars_only

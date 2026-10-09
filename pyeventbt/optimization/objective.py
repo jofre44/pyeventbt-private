@@ -62,7 +62,7 @@ def make_objective(
     run_fn: Callable | None = None,
 ) -> Callable[[optuna.Trial], float]:
     """`run_fn` inyectable para tests (firma como run_pyeventbt_once)."""
-    from pyeventbt.optimization.adapter import derive_seed, run_pyeventbt_once
+    from pyeventbt.optimization.adapter import derive_seed, resolve_base_spread, run_pyeventbt_once
 
     cfg = master["optimization"]
     run_fn = run_fn or run_pyeventbt_once
@@ -73,7 +73,7 @@ def make_objective(
         "strategy_id": master["strategy"].get("strategy_id", "11313"),
         "account_currency": master["strategy"].get("account_currency", "USD"),
         "aux_fallback_rates": master["universe"].get("aux_fallback_rates", {}),
-        "base_spread_points": master["costs"].get("base_spread_points", 20.0),
+        "base_spread_points": resolve_base_spread(master, combo["symbol"]),
     }
 
     def objective(trial: optuna.Trial) -> float:

@@ -45,7 +45,7 @@ def run_prep(master: dict, combo: list[dict], run_dir: Path, run_id: str, log) -
     from pyeventbt.runner import data_manifest as dm
     from pyeventbt.runner.master_config import config_hash, immutable_hash
     from pyeventbt.robustness.power import power_report
-    from pyeventbt.optimization.adapter import run_pyeventbt_once
+    from pyeventbt.optimization.adapter import resolve_base_spread, run_pyeventbt_once
     import yaml
 
     (run_dir / "master_used.yaml").write_text(
@@ -56,7 +56,8 @@ def run_prep(master: dict, combo: list[dict], run_dir: Path, run_id: str, log) -
     w = master["universe"]["windows"]
     is_w = (datetime.fromisoformat(str(w["IS"][0])), datetime.fromisoformat(str(w["IS"][1])))
     fwd = (datetime.fromisoformat(str(w["FORWARD"][0])), datetime.fromisoformat(str(w["FORWARD"][1])))
-    # warmup = max bb lookback del espacio; holding 24 barras H1 (time-stop diario)
+    # warmup = max lookback del espacio; holding = barras de 1 día de time-stop
+    # en el TF señal (M30:48, H1:24, H4:6, D1:1).
     warmup = max(v.get("high", 20) for v in master["strategy"]["search_space"].values()
                  if isinstance(v, dict) and v.get("type") in ("int", "float"))
     for c in combo:
@@ -71,7 +72,8 @@ def run_prep(master: dict, combo: list[dict], run_dir: Path, run_id: str, log) -
         (prep / "manifests" / f"{sym}.json").write_text(
             __import__("json").dumps(man, indent=1, default=str), encoding="utf-8")
         chk = dm.data_check(man)
-        pur = dm.check_window_purity(is_w[1], fwd[0], tf, 24, int(warmup),
+        holding_bars = max(1, 1440 // dm.TF_MINUTES[tf])
+        pur = dm.check_window_purity(is_w[1], fwd[0], tf, holding_bars, int(warmup),
                                      master["universe"]["embargo"].get("extra_bars", 10))
         if chk["verdict"] == "FAIL" or pur["verdict"] == "FAIL":
             log.mark_error(sym, tf, "prep", f"data_check={chk} purity={pur}")
@@ -88,7 +90,7 @@ def run_prep(master: dict, combo: list[dict], run_dir: Path, run_id: str, log) -
             strategy_id=master["strategy"].get("strategy_id", "11313"),
             account_currency=master["strategy"].get("account_currency", "USD"),
             aux_fallback_rates=master["universe"].get("aux_fallback_rates", {}),
-            base_spread_points=master["costs"].get("base_spread_points", 20.0))
+            base_spread_points=resolve_base_spread(master, sym))
         years = (is_w[1] - is_w[0]).days / 365.25
         pw = power_report(r["daily"], r["summary"]["n_trades"], years,
                           master["universe"]["power"].get("target_sharpe", 0.8),

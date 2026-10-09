@@ -166,10 +166,29 @@
   rescatados; eps_auto con k = min(min_samples, n-1). Sin este guarda el
   smoke con 4 trials reventaba.
 
-## J. Etapa 5 (2026-10-08)
-- HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
+## J. Etapa 5 (2026-10-08)- HRP con bugs reales cazados por tests: raiz del dendrograma (2n-2),
   clip pre-normalizado que rompia el cap, Kelly en unidades anuales,
   simplex infactible (2x0.3<1) ahora revienta con mensaje, resto Kelly-0
   reparte el hueco. Guarda: max_weight*n >= 1 o configuracion invalida.
 - Capacity con impacto sqrt: a 1M y 200 trades/ano el decay supera 25%
   (correcto: esa frecuencia no escala a ese capital).
+
+## N. Multi-par / multi-TF (2026-10-09)
+- Dataset refrescado: 26 pares x ~2.1M filas M1 (2021-01/02 -> 2026-10),
+  manifiestos PASS los 26, sin duplicados ni NaN. Ojo: 10 pares empiezan el
+  2021-02-01 (AUDJPY/AUDNZD/AUDUSD/CADCHF/EURUSD/GBPUSD/NZDUSD/USDCAD/USDCHF/
+  USDJPY), un mes despues del inicio IS: su IS efectivo es mas corto.
+- Pares de conversion reales en disco (AUDUSD/USDCAD/USDCHF/...): el fallback
+  de tasa constante queda solo para huecos. Spreads 6.0 (EURUSD) -> 71.6
+  (GBPNZD): el spread global habria falseado todos los rankings; por eso
+  `universe.base_spread_points` por simbolo + `resolve_base_spread()`.
+- Senal D1: barras diarias sin sesion intradia -> una oportunidad por barra +
+  flat en cada barra nueva (holding 1). D1 con bb 2.5 da 0 trades/3m y con
+  1.5-1.8 da 5-6: es ancho de banda, no bug (verificado). Los combos D1
+  nacen con pocos trades: el filtro `min_trades` y las puertas deciden.
+- Embargo prep ahora por TF (barras de 1 dia de time-stop: M30:48, H1:24,
+  H4:6, D1:1). 104 combos: empezar con `--pair/--timeframe`, el barrido
+  completo es `n_trials x coste x 104`.
+- FORWARD movido a 2024-02-11: con D1 el embargo son 40 dias y el hueco de
+  3 dias solo cubria M30/H1 (H4/D1 daban FAIL de pureza). Mismo firewall que
+  en C4, aplicado por TF.

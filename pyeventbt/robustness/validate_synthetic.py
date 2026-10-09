@@ -16,7 +16,7 @@ import polars as pl
 
 logger = logging.getLogger("pyeventbt.pipeline")
 
-TF_MIN = {"M1": 1, "H1": 60, "H4": 240, "D1": 1440}
+TF_MIN = {"M1": 1, "M30": 30, "H1": 60, "H4": 240, "D1": 1440}
 
 
 def load_real_m1(symbol: str, source_csv: str | Path, window: tuple[datetime, datetime]) -> pl.DataFrame:
@@ -64,7 +64,7 @@ def run_consistency(
 ) -> dict[str, Any]:
     """Devuelve {ranks, votes/verdict, synth_ok, validation, null_note}."""
     from pyeventbt.analytics.stats import summarize
-    from pyeventbt.optimization.adapter import run_pyeventbt_once
+    from pyeventbt.optimization.adapter import resolve_base_spread, run_pyeventbt_once
     from pyeventbt.robustness import scoring as _sc
     from pyeventbt.robustness.synthetic import SyntheticMarketGenerator, _describe_returns, validate_synthetic
 
@@ -85,7 +85,7 @@ def run_consistency(
         "strategy_id": master["strategy"].get("strategy_id", "11313"),
         "account_currency": master["strategy"].get("account_currency", "USD"),
         "aux_fallback_rates": master["universe"].get("aux_fallback_rates", {}),
-        "base_spread_points": master["costs"].get("base_spread_points", 20.0),
+        "base_spread_points": resolve_base_spread(master, symbol),
     }
     real = run_pyeventbt_once(params, combo, window=window, seed=seed_base, mode="real", **run_kw)
     real_sum = real["summary"]

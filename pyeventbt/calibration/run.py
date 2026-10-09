@@ -35,13 +35,15 @@ def run_calibration(master: dict[str, Any], combo: dict[str, Any],
     symbol = combo["symbol"]
 
     def _kw(factory, params_cls):
+        from pyeventbt.optimization.adapter import resolve_base_spread
+
         return dict(costs=master["costs"], cash=master["strategy"]["cash"],
                     factory_path=factory, params_class_path=params_cls,
                     data_dir=master["universe"]["data_dir"],
                     strategy_id=master["strategy"].get("strategy_id", "11313"),
                     account_currency=master["strategy"].get("account_currency", "USD"),
                     aux_fallback_rates=master["universe"].get("aux_fallback_rates", {}),
-                    base_spread_points=master["costs"].get("base_spread_points", 20.0))
+                    base_spread_points=resolve_base_spread(master, symbol))
 
     m1 = load_real_m1(symbol, Path(master["universe"]["data_dir"]) / f"{symbol}.csv", window)
     vol_d = float(m1.select((pl.col("close").log().diff() * 100).std()).item() or 0.5) / 100 * (1440 ** 0.5)

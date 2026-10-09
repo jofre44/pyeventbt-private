@@ -18,15 +18,24 @@ strategy:
   frozen: {FilterHours: true, MaxOrdenesAbiertas: 1, close_hour: 21, order_placement_hour: 8}
 
 universe:
-  symbols: [AUDCAD]
-  timeframes: [H1]
+  symbols: [AUDCAD, AUDCHF, AUDJPY, AUDNZD, AUDUSD, CADCHF, CHFJPY, EURCAD,
+    EURCHF, EURGBP, EURJPY, EURNZD, EURUSD, GBPAUD, GBPCAD, GBPCHF, GBPJPY,
+    GBPNZD, GBPUSD, NZDCAD, NZDCHF, NZDJPY, NZDUSD, USDCAD, USDCHF, USDJPY]
+  timeframes: [M30, H1, H4, D1]
   data_dir: E:/Data_csv/MT5
   broker_server_tz: Europe/Athens
-  # Conversión de divisa: el simulador exige el par de conversión (AUDUSD,
-  # USDCAD) que NO existe en el disco del broker. Si aparece el CSV real se usa;
-  # si no, tasa constante documentada (neutra para ranking Sharpe/PF/maxdd%).
-  aux_fallback_rates: {AUDUSD: 0.66, USDCAD: 1.36}
-  windows: {IS: [2021-01-03, 2023-12-31], FORWARD: [2024-01-03, 2025-12-31]}
+  # Spread base por símbolo (medias del manifiesto 2026-10-09; manda sobre costs.base_spread_points).
+  base_spread_points: {AUDCAD: 27.9, AUDCHF: 24.0, AUDJPY: 13.9, AUDNZD: 29.2,
+    AUDUSD: 14.2, CADCHF: 25.9, CHFJPY: 34.5, EURCAD: 29.5, EURCHF: 16.9,
+    EURGBP: 13.2, EURJPY: 17.5, EURNZD: 48.2, EURUSD: 6.0, GBPAUD: 47.8,
+    GBPCAD: 43.9, GBPCHF: 31.6, GBPJPY: 30.5, GBPNZD: 71.6, GBPUSD: 13.8,
+    NZDCAD: 33.2, NZDCHF: 26.7, NZDJPY: 18.2, NZDUSD: 15.2, USDCAD: 16.9,
+    USDCHF: 15.6, USDJPY: 10.8}
+  # Conversión de divisa: el simulador exige el par de conversión (p. ej. AUDUSD
+  # + USDCAD). Los CSV reales existen en data_dir y se usan automáticamente;
+  # el fallback de tasa constante solo cubre huecos (neutro para ranking).
+  aux_fallback_rates: {AUDUSD: 0.66, USDCAD: 1.36, USDCHF: 0.89}
+  windows: {IS: [2021-01-03, 2023-12-31], FORWARD: [2024-02-11, 2025-12-31]}
   embargo: {rule: max_holding_plus_warmup, extra_bars: 10, apply_to: [is_forward, wf_folds, cpcv_folds]}
   min_trades_IS: 100
   power: {mintrl_check: true, target_sharpe: 0.8, alpha: 0.05, inconclusive_action: flag}

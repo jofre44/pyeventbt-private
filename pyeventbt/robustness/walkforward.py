@@ -70,7 +70,7 @@ def walkforward(
             return make_objective(master, combo, window=train_w)
 
         def eval_fn(params, test_w):  # type: ignore[misc]
-            from pyeventbt.optimization.adapter import derive_seed
+            from pyeventbt.optimization.adapter import derive_seed, resolve_base_spread
 
             return run_pyeventbt_once(
                 params, combo, costs=master["costs"], window=test_w,
@@ -81,7 +81,7 @@ def walkforward(
                 strategy_id=master["strategy"].get("strategy_id", "11313"),
                 account_currency=master["strategy"].get("account_currency", "USD"),
                 aux_fallback_rates=master["universe"].get("aux_fallback_rates", {}),
-                base_spread_points=master["costs"].get("base_spread_points", 20.0),
+                base_spread_points=resolve_base_spread(master, combo["symbol"]),
             )
 
     rows = []

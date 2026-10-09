@@ -41,7 +41,26 @@ def derive_seed(master_seed: int, trial_number: int) -> int:
 def tf_to_strategy_timeframe(tf: str):  # noqa: ANN202
     from pyeventbt.strategy.core.strategy_timeframes import StrategyTimeframes
 
-    return {"M1": StrategyTimeframes.ONE_MIN, "H1": StrategyTimeframes.ONE_HOUR}.get(tf, StrategyTimeframes.ONE_HOUR)
+    mapping = {
+        "M1": StrategyTimeframes.ONE_MIN,
+        "M30": StrategyTimeframes.THIRTY_MIN,
+        "H1": StrategyTimeframes.ONE_HOUR,
+        "H4": StrategyTimeframes.FOUR_HOUR,
+        "D1": StrategyTimeframes.ONE_DAY,
+    }
+    try:
+        return mapping[tf]
+    except KeyError:
+        raise ValueError(f"timeframe no soportado por el pipeline: {tf!r} (soportados: {sorted(mapping)})") from None
+
+
+def resolve_base_spread(master: dict[str, Any], symbol: str) -> float:
+    """Spread base por símbolo (del manifiesto) con fallback al global de costs.
+    Regla: `universe.base_spread_points.{SYM}` manda; si falta, `costs.base_spread_points`."""
+    per_symbol = (master.get("universe") or {}).get("base_spread_points") or {}
+    if isinstance(per_symbol, dict) and symbol in per_symbol:
+        return float(per_symbol[symbol])
+    return float((master.get("costs") or {}).get("base_spread_points", 20.0))
 
 
 def normalize_source_frame(df: pl.DataFrame) -> pl.DataFrame:
