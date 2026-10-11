@@ -57,7 +57,7 @@ costs:
 optimization:
   engine: optuna
   direction: maximize
-  n_trials: 100
+  n_trials: 500
   n_startup_random: 10
   sampler: TPE
   constraints_mode: sampler

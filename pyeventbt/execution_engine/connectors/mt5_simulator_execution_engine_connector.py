@@ -450,7 +450,7 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
             close_reason = "STOP_LOSS" if sl_hit else "TAKE_PROFIT"
             signal_type = "BUY" if position.type == 0 else "SELL"
             # Should not add profit to the output comment, as it is the gross profit (takes spread into account) but not commissions
-            logger.info(f"{time_in_datetime} - Closed Position: Position #{position.identifier} {signal_type} {deal.volume:.2f} {symbol} {position.price_open:.5f} closed at {deal.price:.5f} {close_reason} with profit {deal.profit:.2f} {self.account_currency}")
+            logger.debug(f"{time_in_datetime} - Closed Position: Position #{position.identifier} {signal_type} {deal.volume:.2f} {symbol} {position.price_open:.5f} closed at {deal.price:.5f} {close_reason} with profit {deal.profit:.2f} {self.account_currency}")
 
             # Update the shared data with the account information for the simulator
             self._update_shared_data_account_info()
@@ -586,7 +586,7 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
 
                 # order.request.type --> 2 is buy limit, 3 is sell limit, 4 is buy stop, 5 is sell stop
                 order_type = "BUY_LIMIT" if order.request.type == 2 else "SELL_LIMIT" if order.request.type == 3 else "BUY_STOP" if order.request.type == 4 else "SELL_STOP"
-                logger.info(f"{time_in_datetime} - Pending Order Filled: Order #{order.order} {order_type} {deal.volume} {symbol} at {deal.price:.5f} using {required_margin:.2f} {self.account_currency}")
+                logger.debug(f"{time_in_datetime} - Pending Order Filled: Order #{order.order} {order_type} {deal.volume} {symbol} at {deal.price:.5f} using {required_margin:.2f} {self.account_currency}")
         
             else:
                 # If the order is not filled, continue to the next order
@@ -866,7 +866,7 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
                                 retcode_external=0,
                                 request=request)
         
-        logger.info(f"{time_in_datetime} - Market Order Filled: Order #{result.order} {order_event.signal_type} {order_event.volume:.2f} {symbol} at {fill_price:.5f} using {required_margin:.2f} {self.account_currency}")
+        logger.debug(f"{time_in_datetime} - Market Order Filled: Order #{result.order} {order_event.signal_type} {order_event.volume:.2f} {symbol} at {fill_price:.5f} using {required_margin:.2f} {self.account_currency}")
         
         # Update the shared data with the account information for the simulator
         self._update_shared_data_account_info()
@@ -961,9 +961,9 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
         self._update_shared_data_account_info()
         
         if stop_loss == Decimal('0.0') and take_profit == Decimal('0.0'):
-            logger.info(f"{time_in_datetime} - Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {price:.5f}")
+            logger.debug(f"{time_in_datetime} - Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {price:.5f}")
         else:
-            logger.info(f"{time_in_datetime} - Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {price:.5f} SL: {stop_loss:.5f} TP: {take_profit:.5f}")
+            logger.debug(f"{time_in_datetime} - Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {price:.5f} SL: {stop_loss:.5f} TP: {take_profit:.5f}")
 
         return result
 
@@ -1021,7 +1021,7 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
             # Remove the order from the pending_orders dict
             del self.pending_orders[order_ticket]
             
-            logger.info(f"{time_in_datetime} - Pending Order #{order_ticket} has been cancelled")
+            logger.debug(f"{time_in_datetime} - Pending Order #{order_ticket} has been cancelled")
             return result
         
         else:
@@ -1187,9 +1187,9 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
         self._update_shared_data_account_info()
         
         if partial_volume > 0:
-            logger.info(f"{time_in_datetime} - Partial Closed Position: Position #{position.identifier} closed {deal.volume:.2f}/{position.volume:.2f} {position.symbol} {position.price_open:.5f} closed at {deal.price:.5f} with profit {deal.profit:.2f} {self.account_currency}")
+            logger.debug(f"{time_in_datetime} - Partial Closed Position: Position #{position.identifier} closed {deal.volume:.2f}/{position.volume:.2f} {position.symbol} {position.price_open:.5f} closed at {deal.price:.5f} with profit {deal.profit:.2f} {self.account_currency}")
         else:
-            logger.info(f"{time_in_datetime} - Closed Position: Position #{position.identifier} {direction} {deal.volume:.2f} {position.symbol} {position.price_open:.5f} closed at {deal.price:.5f} with profit {deal.profit:.2f} {self.account_currency}")
+            logger.debug(f"{time_in_datetime} - Closed Position: Position #{position.identifier} {direction} {deal.volume:.2f} {position.symbol} {position.price_open:.5f} closed at {deal.price:.5f} with profit {deal.profit:.2f} {self.account_currency}")
 
         return result
 
@@ -1256,10 +1256,10 @@ class Mt5SimulatorExecutionEngineConnector(IExecutionEngine):
         # Update the position's sl and tp
         if new_sl != 0.0:
             position.sl = Decimal(new_sl)
-            logger.info(f"{time_in_datetime} - Position {position_ticket} SL updated to {new_sl:.5f}")
+            logger.debug(f"{time_in_datetime} - Position {position_ticket} SL updated to {new_sl:.5f}")
         if new_tp != 0.0:
             position.tp = Decimal(new_tp)
-            logger.info(f"{time_in_datetime} - Position {position_ticket} TP updated to {new_tp:.5f}")
+            logger.debug(f"{time_in_datetime} - Position {position_ticket} TP updated to {new_tp:.5f}")
 
     def _get_account_currency(self) -> str:
         """Get account currency"""

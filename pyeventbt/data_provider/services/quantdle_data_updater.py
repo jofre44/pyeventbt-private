@@ -143,8 +143,13 @@ class QuantdleDataUpdater:
             new_columns=["date", "time", "open", "high", "low", "close", "tickvol", "volume", "spread"]
         )
         
-        # Parse datetime from date + time columns
+        # Parse datetime from date + time columns (acepta HH:MM o HH:MM:SS)
         existing_df = existing_df.with_columns([
+            pl.when(pl.col("time").str.len_chars() == 5)
+                .then(pl.col("time") + ":00")
+                .otherwise(pl.col("time"))
+                .alias("time")
+        ]).with_columns([
             (pl.col("date") + " " + pl.col("time"))
             .str.strptime(pl.Datetime, "%Y.%m.%d %H:%M:%S")
             .alias("datetime")

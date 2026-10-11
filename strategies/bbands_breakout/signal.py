@@ -108,10 +108,10 @@ def make_signal_fn(
                 current_trading_date[symbol] = current_date
                 orders_placed_today[symbol] = False
                 if open_positions["TOTAL"] > 0:
-                    logger.info(f"{event.datetime} - Closing all positions for {symbol}")
+                    logger.debug(f"{event.datetime} - Closing all positions for {symbol}")
                     modules.EXECUTION_ENGINE.close_all_strategy_positions()
                 if pending_orders["TOTAL"] > 0:
-                    logger.info(f"{event.datetime} - Cancelling all pending orders for {symbol}")
+                    logger.debug(f"{event.datetime} - Cancelling all pending orders for {symbol}")
                     modules.EXECUTION_ENGINE.cancel_all_strategy_pending_orders()
                     return
                 return _place_breakouts(
@@ -127,10 +127,10 @@ def make_signal_fn(
         # Time-stop: cierra todo a las 21:00 (barra cerrada, sin look-ahead)
         if current_time >= time(close_h, close_m):
             if open_positions["TOTAL"] > 0:
-                logger.info(f"{event.datetime} - Closing all positions for {symbol}")
+                logger.debug(f"{event.datetime} - Closing all positions for {symbol}")
                 modules.EXECUTION_ENGINE.close_all_strategy_positions()
             if pending_orders["TOTAL"] > 0:
-                logger.info(f"{event.datetime} - Cancelling all pending orders for {symbol}")
+                logger.debug(f"{event.datetime} - Cancelling all pending orders for {symbol}")
                 modules.EXECUTION_ENGINE.cancel_all_strategy_pending_orders()
             return
 

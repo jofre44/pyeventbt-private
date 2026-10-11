@@ -176,7 +176,7 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
             # Check if the order code is in the positions. If it is, it means the order has been executed
             for position in positions:
                 if pending_order.order == position.identifier:
-                    logger.info(f"Pending order {pending_order.order} in {bar_event.symbol} has been filled")
+                    logger.debug(f"Pending order {pending_order.order} in {bar_event.symbol} has been filled")
                     
                     # Now we need to get the deal(s) information about the executed order (an order can be executed in multiple deals)
                     deals = mt5.history_deals_get(position=position.identifier)
@@ -302,7 +302,7 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
 
         # Check if the order was executed successfully
         if self._check_succesful_order_execution(result):
-            logger.info(f"Market Order Filled: Order #{result.order} {order_event.signal_type} {order_event.volume} {symbol} at {result.price:.5f}")
+            logger.debug(f"Market Order Filled: Order #{result.order} {order_event.signal_type} {order_event.volume} {symbol} at {result.price:.5f}")
 
             # Get the deal(s) information about the executed order (an order can be executed in multiple deals)
             #deals = mt5.history_deals_get(ticket=result.deal)
@@ -407,7 +407,7 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
 
         # Check if the order was placed successfully
         if self._check_succesful_order_execution(result):
-            logger.info(f"Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {result.price:.5f}")
+            logger.debug(f"Pending Order Sent: Order #{result.order} {order_event.signal_type} {order_event.order_type} {volume} {symbol} at {result.price:.5f}")
         else:
             if result is None:
                 logger.warning(f"Pending Order for {symbol} failed. Result is None. Last error: {mt5.last_error()}")
@@ -499,9 +499,9 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
             
             for deal in deals:
                 if partial_volume > 0:
-                    logger.info(f"Partial Closed Position: #{position.identifier} closed {close_volume}/{position.volume} {position.symbol} {position.price_open} closed at {deal.price} with profit {deal.profit} {self._get_account_currency()}")
+                    logger.debug(f"Partial Closed Position: #{position.identifier} closed {close_volume}/{position.volume} {position.symbol} {position.price_open} closed at {deal.price} with profit {deal.profit} {self._get_account_currency()}")
                 else:
-                    logger.info(f"Closed Position: #{position.identifier} closed {close_volume} {position.symbol} {position.price_open} closed at {deal.price} with profit {deal.profit} {self._get_account_currency()}")
+                    logger.debug(f"Closed Position: #{position.identifier} closed {close_volume} {position.symbol} {position.price_open} closed at {deal.price} with profit {deal.profit} {self._get_account_currency()}")
                 
                 # Generate and put the fill event
                 self._generate_and_put_fill_event(trade_deal=deal, events_queue=self.events_queue)
@@ -552,7 +552,7 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
 
         # Check if the order was executed successfully
         if self._check_succesful_order_execution(result):
-            logger.info(f"Order {result.order} successfully cancelled")
+            logger.debug(f"Order {result.order} successfully cancelled")
         else:
             if result is None:
                 logger.warning(f"Cancel Pending Order for ticket {order_ticket} failed. Result is None. Last error: {mt5.last_error()}")
@@ -620,7 +620,7 @@ class Mt5LiveExecutionEngineConnector(IExecutionEngine):
 
         # Check if the order was executed successfully
         if self._check_succesful_order_execution(result):
-            logger.info(f"Position {position_ticket} SL/TP updated to {new_sl:.5f}/{new_tp:.5f}")
+            logger.debug(f"Position {position_ticket} SL/TP updated to {new_sl:.5f}/{new_tp:.5f}")
         else:
             if result is None:
                 logger.warning(f"Update Position SL/TP for {position_ticket} failed. Result is None. Last error: {mt5.last_error()}")

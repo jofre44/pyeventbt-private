@@ -231,8 +231,13 @@ class CSVDataProvider(IDataProvider):
             # 1. lazy read
             lf = pl.scan_csv(fn, has_header=False, new_columns=["date","time","open","high","low","close","tickvol","volume","spread"],)
 
-            # 2. Parse & cast
+            # 2. Parse & cast (acepta HH:MM o HH:MM:SS en MT5)
             lf = lf.with_columns([
+                pl.when(pl.col("time").str.len_chars() == 5)
+                    .then(pl.col("time") + ":00")
+                    .otherwise(pl.col("time"))
+                    .alias("time")
+            ]).with_columns([
                 (pl.col("date") + " " + pl.col("time"))
                     .str.strptime(pl.Datetime, "%Y.%m.%d %H:%M:%S")
                     .alias("datetime"),

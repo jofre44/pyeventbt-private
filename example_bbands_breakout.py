@@ -44,8 +44,8 @@ symbols_to_trade = ['EURUSD']
 starting_capital = 10000
 
 # Strategy Parameters
-bb_period = 20
-bb_std_dev = 2.5
+bb_period = 16
+bb_std_dev = 2.4
 close_hour = 21
 close_minute = 0
 order_placement_hour = 8
@@ -83,11 +83,11 @@ def bbands_breakout(event: BarEvent, modules: Modules):
     # Close positions and cancel orders at close time
     if current_time >= time(close_hour, close_minute):
         if open_positions['TOTAL'] > 0:
-            logger.info(f"{event.datetime} - Closing all positions for {symbol}")
+            logger.debug(f"{event.datetime} - Closing all positions for {symbol}")
             modules.EXECUTION_ENGINE.close_all_strategy_positions()
         
         if pending_orders['TOTAL'] > 0:
-            logger.info(f"{event.datetime} - Cancelling all pending orders for {symbol}")
+            logger.debug(f"{event.datetime} - Cancelling all pending orders for {symbol}")
             modules.EXECUTION_ENGINE.cancel_all_strategy_pending_orders()
         
         return
@@ -158,10 +158,10 @@ strategy.configure_predefined_sizing_engine(MinSizingConfig())
 strategy.configure_predefined_risk_engine(PassthroughRiskConfig())
 
 # Backtest Configuration
-from_date = datetime(year=2020, month=1, day=1)
-to_date = datetime(year=2023, month=12, day=1)
+from_date = datetime(year=2021, month=1, day=1)
+to_date = datetime(year=2025, month=12, day=1)
 # csv_dir = '/Users/marticastany/Desktop/long_data' # Change it with your own path to the CSV data
-csv_dir = None # If you don't have CSV data, you can set this to None
+csv_dir = 'E:/Data_csv/MT5' # If you don't have CSV data, you can set this to None
 
 # Launch Backtest
 backtest = strategy.backtest(

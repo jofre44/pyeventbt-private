@@ -285,11 +285,11 @@ def bbands_breakout(event: BarEvent, modules: Modules):
     # Close positions and cancel orders at close time
     if current_time >= time(close_hour, close_minute):
         if open_positions['TOTAL'] > 0:
-            logger.info(f"{event.datetime} - Closing all positions for {symbol}")
+            logger.debug(f"{event.datetime} - Closing all positions for {symbol}")
             modules.EXECUTION_ENGINE.close_all_strategy_positions()
         
         if pending_orders['TOTAL'] > 0:
-            logger.info(f"{event.datetime} - Cancelling all pending orders for {symbol}")
+            logger.debug(f"{event.datetime} - Cancelling all pending orders for {symbol}")
             modules.EXECUTION_ENGINE.cancel_all_strategy_pending_orders()
         
         return
