@@ -14,6 +14,8 @@ from ..core.configurations.data_provider_configurations import CSVBacktestDataCo
 from pyeventbt.broker.mt5_broker.mt5_simulator_wrapper import Mt5SimulatorWrapper as mt5
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_DOWN
+import bisect
+import calendar
 import polars as pl
 import pandas as pd
 import os
@@ -111,8 +113,17 @@ class CSVDataProvider(IDataProvider):
         backtest_logger.info("| - PRE-BACKTEST CHECKS: Finished checks for backtesting with CSV data")
         backtest_logger.info("+---------------------------------------------------------------------------------------------+")
 
+    # NOTA MEMORIA (OOM): estos dos helpers eran `@lru_cache` sobre MÉTODOS de
+    # instancia. `lru_cache` recibía `self` como primer argumento, así que la
+    # caché global (maxsize=None) retenía una referencia fuerte a CADA
+    # CSVDataProvider creado (uno por trial del pipeline) junto con todos sus
+    # DataFrames M1/TF. En ~200 trials del pipeline eso agota la RAM y provoca
+    # "memory allocation ... failed" (panic de polars/Rust). Al ser
+    # `@staticmethod` la clave de caché depende SOLO de `tf`, que es una
+    # correspondencia constante: mismas prestaciones, cero retención.
+    @staticmethod
     @lru_cache(maxsize=None)
-    def _timeframe_to_duration(self, tf: str) -> str:
+    def _timeframe_to_duration(tf: str) -> str:
         """
         MT5 timeframe (e.g. '5min','1H','1W') -> Polars window string ('5m','1h','1w').
         """
@@ -125,8 +136,9 @@ class CSVDataProvider(IDataProvider):
         
         raise ValueError(f"Unsupported timeframe format: {tf}")
     
+    @staticmethod
     @lru_cache(maxsize=None)
-    def _parse_timeframe_to_minutes(self, timeframe: str) -> int:
+    def _parse_timeframe_to_minutes(timeframe: str) -> int:
         time_units = {"min": 1, "H": 60, "h": 60, "D": 1440, "B": 1440, "W": 10080, "M": 43200}
         for unit, dur in time_units.items():
             if timeframe.endswith(unit):
@@ -221,7 +233,10 @@ class CSVDataProvider(IDataProvider):
         backtest_logger.info("| - PRE-BACKTEST CHECKS: Loading CSV files:")
         complete_m1: dict[str, pl.DataFrame] = {}
         first_dates: dict[str, datetime] = {}
-        comb_index: list[datetime] = []
+        # Master-index inputs as Polars frames (NOT Python datetime lists:
+        # `.to_list()` on ~1M M1 rows + per-bar `pd.Timestamp` loops OOMed
+        # on 3-year IS windows → MemoryError/pyo3 panic).
+        dt_frames: list[pl.DataFrame] = []
 
         # STAGE 1: scan, parse, collect, M1 resample
         for symbol in self.symbol_list:
@@ -266,48 +281,24 @@ class CSVDataProvider(IDataProvider):
                 .sort("datetime")
                 .rechunk()
             )
+            # NOTE: no per-bar Python caches here (no `minute_idx` columns,
+            # no `.to_list()`, no `pd.Timestamp` loop): `raw_df` is released
+            # and only the first timestamp (scalar) + the datetime column
+            # (shared buffers) are kept for the master-index union below.
+            del raw_df
 
-            # 5b) annotate each M1 bar with:
-            #    - global minute‐since‐epoch ("minute_idx")
-            #    - intra‐day minute‐of‐day ("minute_of_day")
-            m1_df = m1_df.with_columns([
-                # global minutes‐since‐epoch
-                (pl.col("datetime")
-                .cast(pl.Int64)
-                .floordiv(pl.lit(1_000_000_000 * 60, pl.Int64))
-                ).alias("minute_idx"),
-
-                # minute‐of‐day 0–1439, cast before math to avoid overflow
-                (
-                pl.col("datetime").dt.hour().cast(pl.Int16) * pl.lit(60, pl.Int16)
-                + pl.col("datetime").dt.minute().cast(pl.Int16)
-                ).alias("minute_of_day")
-            ])
-            
             complete_m1[symbol] = m1_df
+            first_dates[symbol] = m1_df["datetime"][0]
+            dt_frames.append(m1_df.select("datetime"))
 
-            dts  = m1_df["datetime"].to_list()
-            #mins_global  = m1_df["minute_idx"].to_list()
-            #mins_of_day  = m1_df["minute_of_day"].to_list()
-
-            # exact minute‐since‐epoch via Pandas Timestamp.value (nanoseconds)
-            minute_idx = [pd.Timestamp(dt).value // 60_000_000_000 for dt in dts]
-            minute_of_day = [mi % 1440 for mi in minute_idx]        # derive minutes-of-day by modulo 1440
-
-            # These caches are based on the M1 data from CSV
-            # We'll update them after all timeframes are created with the actual base timeframe data
-
-            # # integer caches
-            # # now cache the *global* minute_idx
-            # self._base_minutes[symbol]      = mins
-            # self._base_idx_map_int[symbol]  = {m: idx for idx, m in enumerate(mins)}
-
-            first_dates[symbol] = dts[0]
-            comb_index = dts if not comb_index else self._merge_sorted_unique(comb_index, dts)
-
-        # STAGE 2: build master index from common start
+        # STAGE 2: build master index from common start (vectorized union,
+        # no O(n) Python-list merge with slice copies).
         latest_start = max(first_dates.values())
-        full_idx = pl.DataFrame({"datetime": comb_index}).sort("datetime")
+        if len(dt_frames) == 1:
+            full_idx = dt_frames[0]
+        else:
+            full_idx = pl.concat(dt_frames).unique().sort("datetime")
+        del dt_frames
 
         # STAGE 3: align, fill gaps, then per-TF resample
         for symbol, m1_df in complete_m1.items():
@@ -352,27 +343,19 @@ class CSVDataProvider(IDataProvider):
 
                 self.complete_symbol_data_timeframes[symbol][tf] = tf_df
 
-        # Now update caches with the actual base timeframe data
+        # Caches for the legacy integer-timeframe check, built vectorized.
+        # Datetimes stay in Polars/numpy (no `.to_list()`, no per-bar
+        # `{datetime: idx}` dicts): those were ~GBs of Python objects on M1
+        # windows and caused the MemoryError. The live path
+        # (`_base_tf_bar_creates_new_tf_bar`) uses datetimes directly; only
+        # `_base_tf_bar_creates_new_tf_bar_old` reads `_base_minutes_global`
+        # (binary search, no dict). `pl.Datetime` is µs since epoch, hence
+        # minutes = Int64 // 60_000_000.
         for symbol in self.symbol_list:
-            # Get the actual base timeframe data
             base_df = self.complete_symbol_data_timeframes[symbol][self.base_timeframe]
-            
-            # Extract datetimes for the base timeframe
-            dts = base_df["datetime"].to_list()
-            
-            # Calculate minute indices based on the actual base timeframe data
-            minute_idx = [pd.Timestamp(dt).value // 60_000_000_000 for dt in dts]
-            minute_of_day = [mi % 1440 for mi in minute_idx]
-            
-            # Update caches with the actual base timeframe data
-            self._base_timestamps[symbol] = dts
-            self._base_idx_map[symbol] = {dt:i for i,dt in enumerate(dts)}
-            
-            self._base_minutes_global[symbol] = minute_idx
-            self._base_idx_map_int_global[symbol] = {mi:i for i,mi in enumerate(minute_idx)}
-            
-            self._base_minutes_day[symbol] = minute_of_day
-            self._base_idx_map_int_day[symbol] = {md:i for i,md in enumerate(minute_of_day)}
+            self._base_minutes_global[symbol] = (
+                base_df["datetime"].cast(pl.Int64) // 60_000_000
+            ).to_numpy()
 
     def _get_new_bar_generator(self, symbol: str):
 
@@ -748,17 +731,25 @@ class CSVDataProvider(IDataProvider):
         Returns True exactly when the next base-TF bar
         crosses into a new `timeframe` bucket,
         using integer math that matches Pandas normalize()+floor.
+
+        Lookup is binary search over the vectorized minute-index array
+        (no `{datetime: idx}` dict): a non-exact hit returns False, same
+        as the old dict `.get()` miss.
         """
         tfm = self._parse_timeframe_to_minutes(timeframe)
 
-        # 1) find index into our cached lists
-        idx = self._base_idx_map.get(symbol, {}).get(latest_base_tf_time)
-        if idx is None or idx + 1 >= len(self._base_minutes_global[symbol]):
+        # 1) locate the bar via binary search on minute-since-epoch (UTC)
+        mins = self._base_minutes_global.get(symbol)
+        if mins is None or len(mins) == 0:
+            return False
+        cur_mi = calendar.timegm(latest_base_tf_time.timetuple()) // 60
+        idx = bisect.bisect_left(mins, cur_mi)
+        if idx + 1 >= len(mins) or int(mins[idx]) != cur_mi:
             return False
         
         # 2) pull the two ints
-        mi0 = self._base_minutes_global[symbol][idx]            # global minute_idx
-        mi1 = self._base_minutes_global[symbol][idx + 1]
+        mi0 = int(mins[idx])            # global minute_idx
+        mi1 = int(mins[idx + 1])
         
         # 3) select bucket floor function (same code, different input range)
         if tfm < 1440:

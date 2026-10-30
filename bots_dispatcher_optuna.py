@@ -2,6 +2,14 @@
 [--only prep,optimize,cluster,synth,wfcpcv,select,calibrate] [--pair X] [--timeframe Y]
 [--run-dir DIR] [--max-reps N] [--auto-lockbox] [--report RUN_DIR]`.
 
+Por defecto (sin --only) corre hasta Etapa 4 SELECT inclusive
+(GUIA_ONBOARDING_EJECUCION.md §6): prep,optimize,cluster,synth,wfcpcv,select.
+La meta-etapa M (calibrate) es opt-in explícito: pasar --only ... con calibrate.
+
+Atajo single-backtest (no toca ledger/lockbox ni crea runs/):
+`python bots_dispatcher_optuna.py MASTER --backtest --pair X --timeframe Y
+[--params 'bb_period=20,bb_std_dev=2.5'] [--window IS|FORWARD|YYYY-MM-DD:YYYY-MM-DD]`.
+
 Orquesta por combo (símbolo × TF) con ProcessLog reanudable (resume por
 config_hash + por representante dentro de synth/select). Sin `print` en
 pipeline: logging. Dashboard Rich diferido (nota en ASSUMPTIONS, sec. T).
@@ -27,6 +35,10 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(mes
 logger = logging.getLogger("pyeventbt.pipeline")
 
 STAGES = ["prep", "optimize", "cluster", "synth", "wfcpcv", "select", "calibrate"]
+# Ejecución por defecto de `pipeline_master.yaml`: hasta Etapa 4 SELECT inclusive
+# (GUIA_ONBOARDING_EJECUCION.md §6). `calibrate` es la meta-etapa M y solo corre
+# si se pide explícitamente vía --only.
+DEFAULT_STAGES = ["prep", "optimize", "cluster", "synth", "wfcpcv", "select"]
 
 
 def _run_once_for(master: dict, combo: dict, params: dict,
@@ -504,6 +516,60 @@ def run_select(master: dict, combo: list[dict], run_dir: Path, run_id: str, log,
         logger.warning(f"[select] {c['symbol']} {c['timeframe']}: sel={sel.get('selected', [])}")
 
 
+def _parse_backtest_params(raw: str | None) -> dict:
+    """`--params` JSON o `k=v,k=v`. None/vacío => {} (defaults del params_class)."""
+    if not raw:
+        return {}
+    s = raw.strip()
+    if s.startswith("{"):
+        return json.loads(s)
+    out: dict = {}
+    for chunk in s.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if "=" not in chunk:
+            raise ValueError(f"param sin '=': {chunk!r} (usa k=v,k=v o JSON)")
+        k, v = chunk.split("=", 1)
+        k, v = k.strip(), v.strip()
+        try:
+            out[k] = int(v)
+        except ValueError:
+            try:
+                out[k] = float(v)
+            except ValueError:
+                out[k] = v
+    return out
+
+
+def _parse_backtest_window(master: dict, raw: str | None) -> tuple:
+    """`IS` | `FORWARD` | `YYYY-MM-DD:YYYY-MM-DD` (default IS)."""
+    w = master["universe"]["windows"]
+    key = (raw or "IS").strip()
+    if key in ("IS", "FORWARD"):
+        a, b = w[key]
+        return (datetime.fromisoformat(str(a)), datetime.fromisoformat(str(b)))
+    if ":" in key:
+        a, b = key.split(":", 1)
+        return (datetime.fromisoformat(a.strip()), datetime.fromisoformat(b.strip()))
+    raise ValueError("--window debe ser IS, FORWARD o 'YYYY-MM-DD:YYYY-MM-DD'")
+
+
+def run_single_backtests(master: dict, combo: list[dict], params: dict, window: tuple) -> list[dict]:
+    """Un `run_pyeventbt_once` por combo con costs/seed del maestro.
+
+    No toca ledger/lockbox ni crea runs/: diagnóstico puro con costes congelados
+    y validación estricta del params_class.
+    """
+    rows = []
+    for c in combo:
+        res = _run_once_for(master, c, params, window, int(master["seed"]))
+        rows.append({"symbol": c["symbol"], "timeframe": c["timeframe"],
+                     "params": params, "summary": res["summary"]})
+        logger.warning(f"[backtest] {c['symbol']} {c['timeframe']}: {res['summary']}")
+    return rows
+
+
 def _as_pandas_daily(path: Path):
     from pyeventbt.optimization.neff import _as_pandas
     import polars as pl
@@ -535,7 +601,9 @@ def run_calibrate(master: dict, combo: list[dict], run_dir: Path, run_id: str, l
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("master", nargs="?", default=None)
-    ap.add_argument("--only", default=",".join(STAGES))
+    ap.add_argument("--only", default=",".join(DEFAULT_STAGES),
+                      help=f"etapas a ejecutar (default hasta Etapa 4 SELECT: {','.join(DEFAULT_STAGES)}; "
+                           f"completo: {','.join(STAGES)})")
     ap.add_argument("--pair", default=None)
     ap.add_argument("--timeframe", default=None)
     ap.add_argument("--run-dir", default=None)
@@ -543,8 +611,25 @@ def main() -> None:
                     help="cap de representantes en synth (coste)")
     ap.add_argument("--auto-lockbox", action="store_true",
                     help="permite consumir el FORWARD (una vez, con Holm). Sin esto: AWAITING_LOCKBOX")
+    ap.add_argument("--backtest", action="store_true",
+                    help="un solo backtest por combo con costs del maestro (no toca ledger/lockbox). "
+                         "Requiere --pair y --timeframe")
+    ap.add_argument("--params", default=None,
+                    help="params JSON o k=v,k=v. Ej: 'bb_period=20,bb_std_dev=2.5'. Vacío=defaults")
+    ap.add_argument("--window", default="IS",
+                    help="ventana del backtest: IS, FORWARD o 'YYYY-MM-DD:YYYY-MM-DD' (default: IS)")
     ap.add_argument("--report", default=None, help="emite gate_report.json de RUN_DIR y sale")
+    ap.add_argument("--report-html", default=None,
+                    help="emite report.html offline de RUN_DIR y sale")
+    ap.add_argument("--topN", type=int, default=15,
+                    help="fichas expandidas en report.html (default: 15)")
     args = ap.parse_args()
+    if args.report_html:
+        from pyeventbt.robustness.report_html import build_html_report
+
+        out = build_html_report(args.report_html, top_n=args.topN)
+        print(str(out))
+        return
     if args.report:
         from pyeventbt.robustness.report import build_report
 
@@ -559,6 +644,15 @@ def main() -> None:
     from pyeventbt.runner.process_log import ProcessLog
 
     master = load_master(args.master)
+    if args.backtest:
+        if not args.pair or not args.timeframe:
+            ap.error("--backtest requiere --pair y --timeframe (evita lanzar 104 combos)")
+        cb = combos(master, args.pair, args.timeframe)
+        rows = run_single_backtests(
+            master, cb, _parse_backtest_params(args.params),
+            _parse_backtest_window(master, args.window))
+        print(json.dumps(rows, indent=1, default=str))
+        return
     run_dir = Path(args.run_dir) if args.run_dir else new_run_dir(master)
     run_id = run_dir.name
     log = ProcessLog(run_dir / "process_logs.yaml")
@@ -578,6 +672,13 @@ def main() -> None:
         run_select(master, cb, run_dir, run_id, log, args.auto_lockbox)
     if "calibrate" in only:
         run_calibrate(master, cb, run_dir, run_id, log)
+    try:
+        from pyeventbt.robustness.report_html import build_html_report
+
+        html_out = build_html_report(run_dir)
+        logger.warning(f"[report_html] {html_out}")
+    except Exception as exc:
+        logger.warning(f"[report_html] omitido: {exc}")
     print(str(run_dir))
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import shutil
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -194,11 +195,16 @@ def run_pyeventbt_once(
     bars_df: pl.DataFrame | None = None,
     base_spread_points: float = 20.0,
     keep_tmp: str | Path | None = None,
+    cleanup: bool = True,
     account_currency: str = "USD",
     aux_fallback_rates: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Frontera única. `combo` = {symbol, timeframe, strategy_family}.
-    `window` = (start, end) datetimes naive (hora servidor)."""
+    `window` = (start, end) datetimes naive (hora servidor).
+    Limpieza: si `keep_tmp` es None y `cleanup` es True (defecto), el dir
+    temporal `pyeventbt_once_*` se borra con `shutil.rmtree` en `finally`,
+    incluso si el backtest falla. Pasa `keep_tmp=<dir>` o `cleanup=False`
+    solo para depurar un trial concreto."""
     from strategies.bbands_breakout.params import params_hash  # noqa - trazabilidad
     from pyeventbt.analytics.stats import summarize, to_daily_returns
     from pyeventbt.strategy.strategy import Strategy
@@ -220,62 +226,69 @@ def run_pyeventbt_once(
     stf = tf_to_strategy_timeframe(timeframe)
     w0, w1 = window
 
+    owns_tmp = keep_tmp is None
     tmp = Path(keep_tmp) if keep_tmp else Path(tempfile.mkdtemp(prefix="pyeventbt_once_"))
     tmp.mkdir(parents=True, exist_ok=True)
-    if mode == "real":
-        if bars_df is not None:
+    try:
+        if mode == "real":
+            if bars_df is not None:
+                write_bars_df_to_tmp(symbol, bars_df, tmp)
+            else:
+                slice_source_to_tmp(symbol, Path(data_dir) / f"{symbol}.csv", (w0, w1), tmp)
+        elif mode in ("synthetic", "null", "tick_replay"):
+            if bars_df is None:
+                raise ValueError(f"modo {mode} exige bars_df")
             write_bars_df_to_tmp(symbol, bars_df, tmp)
         else:
-            slice_source_to_tmp(symbol, Path(data_dir) / f"{symbol}.csv", (w0, w1), tmp)
-    elif mode in ("synthetic", "null", "tick_replay"):
-        if bars_df is None:
-            raise ValueError(f"modo {mode} exige bars_df")
-        write_bars_df_to_tmp(symbol, bars_df, tmp)
-    else:
-        raise ValueError(f"modo desconocido: {mode}")
+            raise ValueError(f"modo desconocido: {mode}")
 
-    aux_origins = _ensure_aux_csvs(
-        [symbol], account_currency, (w0, w1), tmp, data_dir, aux_fallback_rates or {}
-    )
+        aux_origins = _ensure_aux_csvs(
+            [symbol], account_currency, (w0, w1), tmp, data_dir, aux_fallback_rates or {}
+        )
 
-    spread_override = int(round(float(base_spread_points) * float(costs.get("spread_mult", 1.0))))
+        spread_override = int(round(float(base_spread_points) * float(costs.get("spread_mult", 1.0))))
 
-    strategy = Strategy()
-    signal_fn = factory(validated.model_dump(), strategy_id=strategy_id, signal_timeframe=stf)
-    strategy.custom_signal_engine(strategy_id=strategy_id, strategy_timeframes=[stf])(signal_fn)
-    strategy.configure_predefined_sizing_engine(MinSizingConfig())
-    strategy.configure_predefined_risk_engine(PassthroughRiskConfig())
-    results = strategy.backtest(
-        strategy_id=strategy_id,
-        initial_capital=float(cash),
-        symbols_to_trade=[symbol],
-        csv_dir=str(tmp),
-        backtest_name=f"{combo.get('strategy_family', 'strat')}_{symbol}_{timeframe}",
-        start_date=w0,
-        end_date=w1,
-        export_backtest_csv=False,
-        export_backtest_parquet=False,
-        backtest_results_dir=str(tmp),
-        account_currency=AccountCurrencies.USD,
-        symbols_info_override={"*": {"spread": spread_override}},
-    )
+        strategy = Strategy()
+        signal_fn = factory(validated.model_dump(), strategy_id=strategy_id, signal_timeframe=stf)
+        strategy.custom_signal_engine(strategy_id=strategy_id, strategy_timeframes=[stf])(signal_fn)
+        strategy.configure_predefined_sizing_engine(MinSizingConfig())
+        strategy.configure_predefined_risk_engine(PassthroughRiskConfig())
+        results = strategy.backtest(
+            strategy_id=strategy_id,
+            initial_capital=float(cash),
+            symbols_to_trade=[symbol],
+            csv_dir=str(tmp),
+            backtest_name=f"{combo.get('strategy_family', 'strat')}_{symbol}_{timeframe}",
+            start_date=w0,
+            end_date=w1,
+            export_backtest_csv=False,
+            export_backtest_parquet=False,
+            backtest_results_dir=str(tmp),
+            account_currency=AccountCurrencies.USD,
+            symbols_info_override={"*": {"spread": spread_override}},
+        )
 
-    pnl = results.pnl
-    if not isinstance(pnl, pd.DataFrame):
-        pnl = pd.DataFrame(pnl)
-    trades = results.trades
-    if not isinstance(trades, pd.DataFrame):
-        trades = pd.DataFrame(trades)
-    summary = summarize(pnl, trades, cash=float(cash))
-    daily = to_daily_returns(pnl)
-    return {
-        "pnl": pnl,
-        "trades": trades,
-        "summary": summary,
-        "daily": daily,
-        "params_hash": params_hash(validated.model_dump()),
-        "seed": int(seed),
-        "mode": mode,
-        "tmpdir": str(tmp),
-        "aux_origins": aux_origins,
-    }
+        pnl = results.pnl
+        if not isinstance(pnl, pd.DataFrame):
+            pnl = pd.DataFrame(pnl)
+        trades = results.trades
+        if not isinstance(trades, pd.DataFrame):
+            trades = pd.DataFrame(trades)
+        summary = summarize(pnl, trades, cash=float(cash))
+        daily = to_daily_returns(pnl)
+        tmp_kept = (not owns_tmp) or (not cleanup)
+        return {
+            "pnl": pnl,
+            "trades": trades,
+            "summary": summary,
+            "daily": daily,
+            "params_hash": params_hash(validated.model_dump()),
+            "seed": int(seed),
+            "mode": mode,
+            "tmpdir": str(tmp),
+            "tmp_kept": tmp_kept,
+            "aux_origins": aux_origins,
+        }
+    finally:
+        if owns_tmp and cleanup:
+            shutil.rmtree(tmp, ignore_errors=True)

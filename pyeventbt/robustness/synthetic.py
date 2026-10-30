@@ -178,8 +178,10 @@ class SyntheticMarketGenerator:
         idx = pd.date_range(start_dt, periods=n_bars, freq=f"{freq_min}min")
         n_sp = len(self.spreads_real)
         spread = self.spreads_real[rng.integers(0, n_sp, n_bars)] * (1.0 + (spread_mult - 1.0))
+        # datetime64 array directly (no `.to_pydatetime().tolist()`: that
+        # built a ~1M-object Python list per sim → OOM next to the backtest).
         return pl.DataFrame({
-            "datetime": idx.to_pydatetime().tolist(),
+            "datetime": idx.to_numpy(),
             "open": ohlc["open"], "high": ohlc["high"],
             "low": ohlc["low"], "close": ohlc["close"],
             "tickvol": np.ones(n_bars, dtype=int),

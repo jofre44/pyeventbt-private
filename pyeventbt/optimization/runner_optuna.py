@@ -45,14 +45,27 @@ def build_pruner(master: dict[str, Any]) -> optuna.pruners.BasePruner | None:
     raise ValueError(f"pruner desconocido: {name}")
 
 
-def build_storage(master: dict[str, Any], out_dir: str | Path) -> str | None:
+def build_storage(master: dict[str, Any], out_dir: str | Path):
+    """Storage persistente del estudio (resume ante crash mid-run).
+
+    Orden de prioridad:
+      1. ``optimization.storage`` explícito (sqlite://, journal:// por fichero de
+         Optuna NO es válido — ``journal://...`` como string lo parsea SQLAlchemy
+         y lanza ``NoSuchModuleError`` en Optuna 5).
+      2. JournalStorage sobre fichero ``<out_dir>/optuna_journal.log``, que
+         tolera workers concurrentes y permite reanudar tras OOM/kill.
+         NOTA versión: construir el OBJETO ``JournalStorage`` directamente;
+         la pseudo-URL ``journal://`` no está soportada desde Optuna 3.x.
+    """
     raw = master["optimization"].get("storage")
     if raw:
         return str(raw)
-    if int(master["optimization"].get("n_jobs", 1)) > 1:
-        # SQLite no soporta workers concurrentes: JournalStorage fichero
-        return f"journal://{Path(out_dir) / 'optuna_journal.log'}"
-    return None
+    from optuna.storages import JournalStorage
+    from optuna.storages.journal import JournalFileBackend
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    return JournalStorage(JournalFileBackend(str(out / "optuna_journal.log")))
 
 
 def optimize(
@@ -91,7 +104,8 @@ def optimize(
         storage=storage,
         load_if_exists=True,
     )
-    todo = max(0, n - len(study.trials))
+    studies_previos = len(study.trials)
+    todo = max(0, n - studies_previos)
     if todo:
         study.optimize(obj, n_trials=todo, n_jobs=int(master["optimization"].get("n_jobs", 1)))
 
@@ -104,24 +118,43 @@ def optimize(
     pool = feas or done
     best = (max(t.value for t in pool) if study.direction == "maximize" else min(t.value for t in pool)) if pool else None
 
-    # Volcado al ledger global (S y K del run)
+    # Volcado al ledger global (S y K del run). Idempotente ante REANUDACIÓN:
+    # si un trial ya está en el ledger (misma run_id+combo+trial+ventana) no se
+    # duplica; el ledger sigue siendo append-only (nunca encoge) y S_global no
+    # se infla al reanudar un estudio con JournalStorage.
     try:
         from strategies.bbands_breakout.params import params_hash  # noqa
+        from pyeventbt.research.ledger import read_ledger
 
+        window_tag = f"IS[{w[0].date()},{w[1].date()}]"
+        combo_tag = f"{combo['symbol']}_{combo['timeframe']}"
+        ledger_path = master["research_ledger"]["path"]
+        ya = set()
+        try:
+            ldf = read_ledger(ledger_path)
+            if not ldf.is_empty():
+                for r in ldf.iter_rows(named=True):
+                    ya.add((r.get("run_id"), r.get("combo"), r.get("trial_number"), r.get("window")))
+        except Exception:
+            ya = set()
         rows = []
         for t in study.trials:
+            key = (run_id, combo_tag, t.number, window_tag)
+            if key in ya:
+                continue
             rows.append({
                 "run_id": run_id,
                 "strategy_family": combo.get("strategy_family", master["strategy"]["name"]),
-                "combo": f"{combo['symbol']}_{combo['timeframe']}",
+                "combo": combo_tag,
                 "trial_number": t.number,
                 "params_hash": str(t.user_attrs.get("params_hash", "")),
-                "window": f"IS[{w[0].date()},{w[1].date()}]",
+                "window": window_tag,
                 "sharpe_net": t.user_attrs.get("sharpe_net_full"),
                 "n_trades": t.user_attrs.get("n_trades"),
                 "daily_returns_ref": f"{study_name}/daily_returns.parquet#trial_{t.number}",
             })
-        append_trials(master["research_ledger"]["path"], rows)
+        if rows:
+            append_trials(ledger_path, rows)
     except Exception as exc:
         logger.warning(f"ledger no actualizado (no bloquea): {exc}")
 
@@ -156,8 +189,26 @@ def persist_study(
     pl.DataFrame(recs).write_parquet(trials_path)
 
     daily_path = out / f"{name}_daily_returns.parquet"
-    if daily_store:
-        frame = pd.DataFrame({f"trial_{k}": pd.Series(v) for k, v in daily_store.items()})
+    # Al REANUDAR tras un crash, `daily_store` solo contiene los trials de ESTA
+    # sesión; los trials previos ya tienen su columna trial_N en el parquet.
+    # Se mezcla por nombre de columna (contenido determinista para el mismo
+    # trial: mismo seed derivado + mismos costs) en vez de sobrescribir.
+    cols: dict[str, pd.Series] = {}
+    if daily_path.exists():
+        try:
+            prev = pl.read_parquet(daily_path).to_pandas()
+            if "date" in prev.columns:
+                prev = prev.set_index("date")
+            for c in prev.columns:
+                cols[str(c)] = prev[c]
+        except Exception as exc:  # fichero ilegible: se reconstruye con lo nuevo
+            logger.warning(f"daily_returns previo ilegible ({exc}); se reescribe")
+    for k, v in daily_store.items():
+        s = pd.Series(v)
+        s.index.name = "date"
+        cols[f"trial_{k}"] = s
+    if cols:
+        frame = pd.DataFrame(cols)
         pl.from_pandas(frame.reset_index(names=["date"]).astype({"date": str})).write_parquet(daily_path)
     else:
         pl.DataFrame({"date": []}).write_parquet(daily_path)
